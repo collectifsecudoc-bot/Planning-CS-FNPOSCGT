@@ -784,7 +784,7 @@
       { category: "Fédé", title: "Visio bases" }
     ];
 
-    let camarades = [];
+    let camarades = defaultCamarades;
     let meetingSubjects = defaultSubjects;
 
     let statuses = [
@@ -826,6 +826,11 @@
 
     const now = new Date();
     selectMonth.value = now.getMonth();
+
+    // Initialisation synchrone minimale immédiate pour que le sélecteur de date de réunion ne soit pas vide au premier affichage
+    populateStartTimes();
+    populateMeetingSubjects();
+    updateMeetingDayOptions(parseInt(selectMonth.value), getDaysInMonth(parseInt(selectMonth.value), parseInt(selectYear.value)));
 
     selectMonth.addEventListener('change', renderAll);
     selectYear.addEventListener('change', renderAll);
