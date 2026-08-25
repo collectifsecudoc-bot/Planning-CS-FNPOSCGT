@@ -5,6 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PLANNING MENSUEL COLLECTIF SÉCU FNPOS CGT</title>
   
+  <!-- SDK Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyACG_8DoHZIzt3-CraQ_YrzQHuCR_FizC8",
+      authDomain: "planning-collectif-secu.firebaseapp.com",
+      databaseURL: "https://planning-collectif-secu-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "planning-collectif-secu",
+      storageBucket: "planning-collectif-secu.firebasestorage.app",
+      messagingSenderId: "1080712912870",
+      appId: "1:1080712912870:web:cd0ceb416b18140d1a8027"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.db = db;
+    window.dbRef = ref;
+    window.dbSet = set;
+    window.dbOnValue = onValue;
+    window.dbPush = push;
+    window.dbRemove = remove;
+    
+    window.initFirebaseSync();
+  </script>
+
   <style>
     :root {
       --cgt-red: #d32f2f;
@@ -628,6 +656,9 @@
 
         <div class="checkbox-group">
           <span style="font-weight:bold; font-size:0.8rem;">Présents :</span>
+          <label style="font-weight: bold; color: var(--cgt-dark-red);">
+            <input type="checkbox" id="m-all-camarades-cb" onchange="toggleAllCamarades(this.checked)"> Tous les camarades
+          </label>
           <div id="camarades-checkboxes" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;"></div>
           
           <label style="border-left: 1px solid #ccc; padding-left: 10px; margin-left: 5px; font-weight: bold; color: var(--cgt-dark-red);">
@@ -687,26 +718,21 @@
     </div>
   </div>
 
-  <!-- JavaScript principal et initialisation Firebase intégrée -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+  <div class="modal-overlay" id="modal-edit-access">
+    <div class="modal-content">
+      <h3>Accès édition / configuration</h3>
+      <label for="edit-access-code">Code à 4 chiffres :</label>
+      <input type="password" id="edit-access-code" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="off">
+      <div id="edit-access-error" style="display:none; color:var(--cgt-dark-red); font-size:0.85rem; margin-top:8px;">Code incorrect.</div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeEditAccessModal()">Annuler</button>
+        <button class="btn-add" onclick="validateEditAccessCode()">Valider</button>
+      </div>
+    </div>
+  </div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyACG_8DoHZIzt3-CraQ_YrzQHuCR_FizC8",
-      authDomain: "planning-collectif-secu.firebaseapp.com",
-      databaseURL: "https://planning-collectif-secu-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "planning-collectif-secu",
-      storageBucket: "planning-collectif-secu.firebasestorage.app",
-      messagingSenderId: "1080712912870",
-      appId: "1:1080712912870:web:cd0ceb416b18140d1a8027"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // Données par défaut
-    const defaultCamarades = [
+  <script>
+    let defaultCamarades = [
       { name: "Adeline", email: "", phone: "" },
       { name: "Benjamin", email: "", phone: "" },
       { name: "Carole", email: "", phone: "" },
@@ -724,9 +750,8 @@
       { name: "Yves", email: "", phone: "" }
     ].sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
 
-    const defaultSubjects = [
+    let defaultSubjects = [
       { category: "Collectif Sécu", title: "Réunion Plénière Collectif Sécu" },
-      { category: "Collectif Sécu", title: "Point d'actualité Sécu" },
       { category: "Ucanss", title: "Intersyndicale" },
       { category: "Ucanss", title: "Obs Région" },
       { category: "Ucanss", title: "Panier de soins" },
@@ -734,6 +759,13 @@
       { category: "Ucanss", title: "Prépa CPNEFP" },
       { category: "Ucanss", title: "Prépa CPS" },
       { category: "Ucanss", title: "Prépa INC" },
+      { category: "Ucanss", title: "INC Maladie" },
+      { category: "Ucanss", title: "INC Famille" },
+      { category: "Ucanss", title: "INC Vieillesse" },
+      { category: "Ucanss", title: "INC Recouvrement" },
+      { category: "Ucanss", title: "INC Ugecam" },
+      { category: "Ucanss", title: "INC AT/MP" },
+      { category: "Ucanss", title: "INC CNSA" },
       { category: "Ucanss", title: "Prépa RPN" },
       { category: "Ucanss", title: "Primes de fonction" },
       { category: "Ucanss", title: "Rencontre Ucanss" },
@@ -755,8 +787,13 @@
       { category: "Ucanss", title: "RPN Transfert centre de santé" },
       { category: "Ucanss", title: "RPN Travail de nuit dans les UGECAM" },
       { category: "Ucanss", title: "Secrétariat" },
+      { category: "Ucanss", title: "CPS" },
+      { category: "Ucanss", title: "CFS" },
+      { category: "Ucanss", title: "CPP" },
+      { category: "Ucanss", title: "COM Suiv ARS" },
       { category: "Ucanss", title: "Visio OPCO" },
       { category: "Ucanss", title: "Visios bases" },
+      { category: "Ucanss", title: "RPN Prog Négoe" },
       { category: "Fédé", title: "Autre" },
       { category: "Fédé", title: "Classification" },
       { category: "Fédé", title: "Formation Com" },
@@ -774,12 +811,15 @@
       { category: "Fédé", title: "Visio bases" }
     ];
 
-    const defaultStatuses = [
+    let camarades = [];
+    let meetingSubjects = defaultSubjects;
+
+    let defaultStatuses = [
       { code: "", label: "-", bg: "transparent", color: "#333", locked: false },
       { code: "RU", label: "Réunion Ucanss", bg: "var(--ucanss-blue)", color: "#ffffff", locked: true },
       { code: "RF", label: "Réunion Fédé", bg: "var(--fede-red)", color: "#ffffff", locked: true },
-      { code: "CS", label: "Collectif Sécu", bg: "var(--cs-red)", color: "#ffffff", locked: true },
-      { code: "CEF", label: "ComExFD", bg: "#8d6e63", color: "#ffffff", locked: false },
+      { code: "CS", label: "Collectif Sécu", bg: "var(--fede-red)", color: "#ffffff", locked: true },
+      { code: "CEF", label: "ComExFD", bg: "var(--fede-red)", color: "#ffffff", locked: true },
       { code: "CP", label: "Congés", bg: "#ccff00", color: "#000000", locked: false },
       { code: "DT", label: "Dispo Tel", bg: "#1b5e20", color: "#ffffff", locked: false },
       { code: "DS", label: "Disponible", bg: "#2e7d32", color: "#ffffff", locked: false },
@@ -790,14 +830,11 @@
       { code: "VI", label: "Visio", bg: "#9c27b0", color: "#ffffff", locked: false }
     ];
 
-    // Variables d'état globales
-    window.camarades = [];
-    window.meetingSubjects = defaultSubjects;
-    window.statuses = defaultStatuses;
-    window.meetings = [];
-    window.cellStatuses = [];
-    window.isModalEditing = false;
-    window.currentView = 'planning';
+    let statuses = defaultStatuses;
+    let meetings = [];
+    let cellStatuses = [];
+    let isModalEditing = false;
+    let currentView = 'planning';
     let isSyncingFromFirebase = false;
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -822,41 +859,71 @@
     selectYear.addEventListener('change', renderAll);
     document.getElementById('form-meeting').addEventListener('submit', handleMeetingSubmit);
 
-    // Synchronisation avec Firebase
-    onValue(ref(db, 'planningData'), (snapshot) => {
-      const data = snapshot.val();
-      isSyncingFromFirebase = true;
-      if (data) {
-        window.cellStatuses = data.cellStatuses || [];
-        window.meetings = data.meetings || [];
-        window.camarades = (data.camarades && data.camarades.length > 0) ? data.camarades : defaultCamarades;
-        window.meetingSubjects = (data.meetingSubjects && data.meetingSubjects.length > 0) ? data.meetingSubjects : defaultSubjects;
-        window.statuses = (data.statuses && data.statuses.length > 0) ? data.statuses : defaultStatuses;
-      } else {
-        window.camarades = defaultCamarades;
-        window.meetingSubjects = defaultSubjects;
-        window.statuses = defaultStatuses;
-        window.cellStatuses = [];
-        window.meetings = [];
-        saveToFirebase();
-      }
-      isSyncingFromFirebase = false;
-      renderAll();
-    });
+    window.initFirebaseSync = function() {
+      const dbRef = window.dbRef;
+      const dbOnValue = window.dbOnValue;
+      const db = window.db;
 
-    window.saveToFirebase = function() {
-      if (isSyncingFromFirebase) return;
-      set(ref(db, 'planningData'), {
-        cellStatuses: window.cellStatuses,
-        meetings: window.meetings,
-        camarades: window.camarades,
-        meetingSubjects: window.meetingSubjects,
-        statuses: window.statuses
+      dbOnValue(dbRef(db, 'planningData'), (snapshot) => {
+        const data = snapshot.val();
+        let renamedLucille = false;
+        let needsDataUpgrade = false;
+        isSyncingFromFirebase = true;
+        if (data) {
+          cellStatuses = data.cellStatuses || [];
+          meetings = data.meetings || [];
+          camarades = (data.camarades && data.camarades.length > 0) ? data.camarades : defaultCamarades;
+          if (Array.isArray(data.meetingSubjects) && data.meetingSubjects.length > 0) meetingSubjects = data.meetingSubjects;
+          else { meetingSubjects = defaultSubjects; needsDataUpgrade = true; }
+          if (Array.isArray(data.statuses) && data.statuses.length > 0) statuses = data.statuses;
+          else { statuses = defaultStatuses; needsDataUpgrade = true; }
+          const normalizedStatuses = statuses.map(status => {
+            if (['RF', 'CS', 'CEF'].includes(status.code)) {
+              return { ...status, bg: 'var(--fede-red)', color: '#ffffff', locked: true };
+            }
+            return status;
+          });
+          if (JSON.stringify(normalizedStatuses) !== JSON.stringify(statuses)) needsDataUpgrade = true;
+          statuses = normalizedStatuses;
+          renamedLucille = camarades.some(c => c.name === 'Lucille');
+          if (renamedLucille) {
+            camarades = camarades.map(c => c.name === 'Lucille' ? { ...c, name: 'Lulu' } : c);
+            meetings = meetings.map(m => ({
+              ...m,
+              camarades: (m.camarades || []).map(name => name === 'Lucille' ? 'Lulu' : name)
+            }));
+          }
+        } else {
+          camarades = defaultCamarades;
+          meetingSubjects = defaultSubjects;
+          statuses = defaultStatuses;
+          cellStatuses = [];
+          meetings = [];
+          saveToFirebase();
+        }
+        isSyncingFromFirebase = false;
+        if (renamedLucille || needsDataUpgrade) saveToFirebase();
+        renderAll();
       });
     };
 
-    window.switchView = function(viewName) {
-      window.currentView = viewName;
+    function saveToFirebase() {
+      if (isSyncingFromFirebase) return;
+      const db = window.db;
+      const dbRef = window.dbRef;
+      const dbSet = window.dbSet;
+
+      dbSet(dbRef(db, 'planningData'), {
+        cellStatuses: cellStatuses,
+        meetings: meetings,
+        camarades: camarades,
+        meetingSubjects: meetingSubjects,
+        statuses: statuses
+      });
+    }
+
+    function switchView(viewName) {
+      currentView = viewName;
       document.getElementById('view-planning').classList.remove('active');
       document.getElementById('view-directory').classList.remove('active');
       document.getElementById('btn-tab-planning').classList.remove('active');
@@ -874,7 +941,7 @@
         planningControls.forEach(el => el.style.display = 'none');
         renderDirectory();
       }
-    };
+    }
 
     function isJourFerie(date) {
       const annee = date.getFullYear();
@@ -919,7 +986,7 @@
       const ucanssGroup = document.createElement('optgroup'); ucanssGroup.label = "--- Réunions Ucanss ---";
       const fedeGroup = document.createElement('optgroup'); fedeGroup.label = "--- Réunions Fédé ---";
 
-      window.meetingSubjects.slice().sort((a,b) => a.title.localeCompare(b.title, 'fr')).forEach(s => {
+      meetingSubjects.sort((a,b) => a.title.localeCompare(b.title, 'fr')).forEach(s => {
         const opt = document.createElement('option');
         opt.value = JSON.stringify(s);
         opt.textContent = `[${s.category}] ${s.title}`;
@@ -933,19 +1000,49 @@
       subjectSelect.appendChild(fedeGroup);
     }
 
-    window.toggleOtherInput = function() {
+    function toggleOtherInput() {
       const cb = document.getElementById('m-other-cb');
       const input = document.getElementById('m-other-name');
       input.style.display = cb.checked ? 'inline-block' : 'none';
       if (!cb.checked) input.value = '';
-    };
+    }
 
-    window.toggleEditPanel = function() {
+    function toggleEditPanel() {
       const panel = document.getElementById('edit-panel');
       const isVisible = panel.style.display === 'block';
-      panel.style.display = isVisible ? 'none' : 'block';
-      if (!isVisible) renderEditLists();
-    };
+      if (isVisible) {
+        panel.style.display = 'none';
+        return;
+      }
+
+      openEditAccessModal();
+    }
+
+    function openEditAccessModal() {
+      const modal = document.getElementById('modal-edit-access');
+      const input = document.getElementById('edit-access-code');
+      document.getElementById('edit-access-error').style.display = 'none';
+      input.value = '';
+      modal.style.display = 'flex';
+      input.focus();
+    }
+
+    function closeEditAccessModal() {
+      document.getElementById('modal-edit-access').style.display = 'none';
+    }
+
+    function validateEditAccessCode() {
+      const input = document.getElementById('edit-access-code');
+      if (input.value === '0410') {
+        closeEditAccessModal();
+        document.getElementById('edit-panel').style.display = 'block';
+        renderEditLists();
+      } else {
+        document.getElementById('edit-access-error').style.display = 'block';
+        input.focus();
+        input.select();
+      }
+    }
 
     function getDaysInMonth(month, year) {
       return new Date(year, month + 1, 0).getDate();
@@ -963,19 +1060,19 @@
       renderCheckboxes();
       renderMeetingsTable();
       renderEditLists();
-      if (window.currentView === 'directory') renderDirectory();
+      if (currentView === 'directory') renderDirectory();
     }
 
-    window.renderDirectory = function() {
+    function renderDirectory() {
       const container = document.getElementById('directory-grid-container');
       const searchVal = document.getElementById('directory-search-input').value.trim().toLowerCase();
       container.innerHTML = '';
 
-      const filtered = window.camarades.filter(c => c.name.toLowerCase().includes(searchVal));
+      const filtered = camarades.filter(c => c.name.toLowerCase().includes(searchVal));
       document.getElementById('directory-count').textContent = `${filtered.length} camarade(s) affiché(s)`;
 
       filtered.forEach(c => {
-        const originalIndex = window.camarades.findIndex(item => item.name === c.name);
+        const originalIndex = camarades.findIndex(item => item.name === c.name);
         const emailContent = c.email ? `<a href="mailto:${c.email}">${c.email}</a>` : '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
         const phoneContent = c.phone ? `<a href="tel:${c.phone}">${c.phone}</a>` : '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
 
@@ -991,7 +1088,7 @@
         `;
         container.appendChild(card);
       });
-    };
+    }
 
     function renderTableCamarades(month, year, totalDays) {
       const headerDays = document.getElementById('header-days');
@@ -1022,7 +1119,7 @@
       }
 
       body.innerHTML = '';
-      window.camarades.forEach((c, index) => {
+      camarades.forEach((c, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="col-name" onclick="openContactModal(${index})" title="Cliquer pour voir/modifier les coordonnées">${c.name}</td>`;
 
@@ -1045,7 +1142,7 @@
             if (isInactive) {
               select.disabled = true;
             } else {
-              window.statuses.forEach(st => {
+              statuses.forEach(st => {
                 const opt = document.createElement('option');
                 opt.value = st.code;
                 opt.textContent = st.code || '-';
@@ -1053,7 +1150,7 @@
                 select.appendChild(opt);
               });
 
-              const saved = window.cellStatuses.find(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
+              const saved = cellStatuses.find(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
               if (saved) select.value = saved.code;
 
               updateSelectStyle(select);
@@ -1062,12 +1159,12 @@
                 const val = e.target.value;
                 updateSelectStyle(e.target);
                 
-                const existingIdx = window.cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
+                const existingIdx = cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
                 if (val === "") {
-                  if (existingIdx !== -1) window.cellStatuses.splice(existingIdx, 1);
+                  if (existingIdx !== -1) cellStatuses.splice(existingIdx, 1);
                 } else {
-                  if (existingIdx !== -1) window.cellStatuses[existingIdx].code = val;
-                  else window.cellStatuses.push({ camarade: c.name, year, month, day: d, slot, code: val });
+                  if (existingIdx !== -1) cellStatuses[existingIdx].code = val;
+                  else cellStatuses.push({ camarade: c.name, year, month, day: d, slot, code: val });
                 }
                 saveToFirebase();
               });
@@ -1077,9 +1174,9 @@
                   e.preventDefault();
                   select.value = "";
                   updateSelectStyle(select);
-                  const existingIdx = window.cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
+                  const existingIdx = cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
                   if (existingIdx !== -1) {
-                    window.cellStatuses.splice(existingIdx, 1);
+                    cellStatuses.splice(existingIdx, 1);
                     saveToFirebase();
                   }
                 }
@@ -1094,16 +1191,16 @@
       applyMeetingsToCamaradesTable();
     }
 
-    window.openContactModal = function(index) {
-      const c = window.camarades[index];
+    function openContactModal(index) {
+      const c = camarades[index];
       document.getElementById('modal-camarade-index').value = index;
       document.getElementById('modal-camarade-name').textContent = `Coordonnées : ${c.name}`;
       document.getElementById('contact-email').value = c.email || '';
       document.getElementById('contact-phone').value = c.phone || '';
-      window.isModalEditing = false;
+      isModalEditing = false;
       setModalReadOnly(true);
       document.getElementById('modal-contact').style.display = 'flex';
-    };
+    }
 
     function setModalReadOnly(isReadOnly) {
       const emailInput = document.getElementById('contact-email');
@@ -1124,29 +1221,29 @@
       }
     }
 
-    window.toggleModalEditMode = function() {
-      if (!window.isModalEditing) {
-        window.isModalEditing = true;
+    function toggleModalEditMode() {
+      if (!isModalEditing) {
+        isModalEditing = true;
         setModalReadOnly(false);
       } else {
         const index = document.getElementById('modal-camarade-index').value;
         if (index !== '') {
-          window.camarades[index].email = document.getElementById('contact-email').value.trim();
-          window.camarades[index].phone = document.getElementById('contact-phone').value.trim();
+          camarades[index].email = document.getElementById('contact-email').value.trim();
+          camarades[index].phone = document.getElementById('contact-phone').value.trim();
           saveToFirebase();
         }
         closeContactModal();
-        if (window.currentView === 'directory') renderDirectory();
+        if (currentView === 'directory') renderDirectory();
       }
-    };
+    }
 
-    window.closeContactModal = function() {
+    function closeContactModal() {
       document.getElementById('modal-contact').style.display = 'none';
-      window.isModalEditing = false;
-    };
+      isModalEditing = false;
+    }
 
     function updateSelectStyle(selectEl) {
-      const st = window.statuses.find(s => s.code === selectEl.value);
+      const st = statuses.find(s => s.code === selectEl.value);
       if (st) {
         selectEl.style.backgroundColor = st.bg;
         selectEl.style.color = st.color;
@@ -1175,9 +1272,20 @@
     function renderCheckboxes() {
       const container = document.getElementById('camarades-checkboxes');
       container.innerHTML = '';
-      window.camarades.forEach(c => {
-        container.innerHTML += `<label><input type="checkbox" value="${c.name}" class="m-camarade-cb"> ${c.name}</label>`;
+      camarades.forEach(c => {
+        container.innerHTML += `<label><input type="checkbox" value="${c.name}" class="m-camarade-cb" onchange="updateAllCamaradesCheckbox()"> ${c.name}</label>`;
       });
+      updateAllCamaradesCheckbox();
+    }
+
+    function toggleAllCamarades(checked) {
+      document.querySelectorAll('.m-camarade-cb').forEach(cb => cb.checked = checked);
+    }
+
+    function updateAllCamaradesCheckbox() {
+      const allCheckbox = document.getElementById('m-all-camarades-cb');
+      const camaradeCheckboxes = document.querySelectorAll('.m-camarade-cb');
+      allCheckbox.checked = camaradeCheckboxes.length > 0 && Array.from(camaradeCheckboxes).every(cb => cb.checked);
     }
 
     function handleMeetingSubmit(e) {
@@ -1199,12 +1307,12 @@
       const editingId = document.getElementById('editing-meeting-id').value;
 
       if (editingId) {
-        const idx = window.meetings.findIndex(m => m.id == editingId);
+        const idx = meetings.findIndex(m => m.id == editingId);
         if (idx !== -1) {
-          window.meetings[idx] = { id: parseInt(editingId), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades };
+          meetings[idx] = { id: parseInt(editingId), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades };
         }
       } else {
-        window.meetings.push({ id: Date.now(), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades });
+        meetings.push({ id: Date.now(), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades });
       }
 
       resetMeetingForm();
@@ -1212,8 +1320,8 @@
       renderAll();
     }
 
-    window.editMeeting = function(id) {
-      const m = window.meetings.find(item => item.id === id);
+    function editMeeting(id) {
+      const m = meetings.find(item => item.id === id);
       if (!m) return;
       if (m.month !== undefined) selectMonth.value = m.month;
       if (m.year !== undefined) selectYear.value = m.year;
@@ -1239,7 +1347,7 @@
       const otherInput = document.getElementById('m-other-name');
       otherCb.checked = false; otherInput.value = '';
 
-      const namesList = window.camarades.map(c => c.name);
+      const namesList = camarades.map(c => c.name);
       m.camarades.forEach(c => {
         if (namesList.includes(c)) {
           const cb = document.querySelector(`.m-camarade-cb[value="${c}"]`);
@@ -1254,27 +1362,28 @@
       document.getElementById('btn-submit-meeting').textContent = "Enregistrer les modifications";
       document.getElementById('btn-cancel-meeting').style.display = "inline-block";
       document.getElementById('form-meeting').scrollIntoView({ behavior: 'smooth' });
-    };
+    }
 
-    window.resetMeetingForm = function() {
+    function resetMeetingForm() {
       document.getElementById('editing-meeting-id').value = '';
       document.getElementById('m-detail').value = '';
       document.getElementById('m-visio').checked = false;
       document.getElementById('m-doc-url').value = '';
       document.querySelectorAll('.m-camarade-cb').forEach(cb => cb.checked = false);
+      document.getElementById('m-all-camarades-cb').checked = false;
       document.getElementById('m-other-cb').checked = false;
       document.getElementById('m-other-name').value = '';
       toggleOtherInput();
       document.getElementById('btn-submit-meeting').textContent = "Ajouter la réunion";
       document.getElementById('btn-cancel-meeting').style.display = "none";
-    };
+    }
 
-    window.deleteMeeting = function(id) {
-      window.meetings = window.meetings.filter(m => m.id !== id);
+    function deleteMeeting(id) {
+      meetings = meetings.filter(m => m.id !== id);
       if (document.getElementById('editing-meeting-id').value == id) resetMeetingForm();
       saveToFirebase();
       renderAll();
-    };
+    }
 
     function renderMeetingsTable() {
       const body = document.getElementById('body-meetings');
@@ -1282,7 +1391,7 @@
       const currentYear = parseInt(selectYear.value);
       body.innerHTML = '';
 
-      const filteredMeetings = window.meetings.filter(m => {
+      const filteredMeetings = meetings.filter(m => {
         const mMonth = m.month !== undefined ? m.month : currentMonth;
         const mYear = m.year !== undefined ? m.year : currentYear;
         return mMonth === currentMonth && mYear === currentYear;
@@ -1325,7 +1434,7 @@
       const currentMonth = parseInt(selectMonth.value);
       const currentYear = parseInt(selectYear.value);
 
-      window.meetings.forEach(m => {
+      meetings.forEach(m => {
         const mMonth = m.month !== undefined ? m.month : currentMonth;
         const mYear = m.year !== undefined ? m.year : currentYear;
 
@@ -1351,13 +1460,13 @@
     function renderEditLists() {
       const cList = document.getElementById('edit-camarades-list');
       cList.innerHTML = '';
-      window.camarades.forEach((c, idx) => {
+      camarades.forEach((c, idx) => {
         cList.innerHTML += `<li><span>${c.name}</span><button class="btn-del" onclick="removeCamarade(${idx})">Supprimer</button></li>`;
       });
 
       const subList = document.getElementById('edit-subjects-list');
       subList.innerHTML = '';
-      window.meetingSubjects.forEach((sub, idx) => {
+      meetingSubjects.forEach((sub, idx) => {
         let badgeClass = 'badge-ucanss';
         if (sub.category === 'Collectif Sécu') badgeClass = 'badge-cs';
         else if (sub.category === 'Fédé') badgeClass = 'badge-fede';
@@ -1366,69 +1475,71 @@
 
       const sList = document.getElementById('edit-statuses-list');
       sList.innerHTML = '';
-      window.statuses.forEach((st, idx) => {
+      statuses.forEach((st, idx) => {
         if (st.code === "") return;
         const actionBtn = st.locked ? `<span style="font-size: 0.75rem; color: #777; font-style: italic;">Système</span>` : `<button class="btn-del" onclick="removeStatus(${idx})">Supprimer</button>`;
         sList.innerHTML += `<li><span><strong style="background:${st.bg}; color:${st.color}; padding:2px 5px; border-radius:3px;">${st.code}</strong> ${st.label}</span>${actionBtn}</li>`;
       });
     }
 
-    window.addCamarade = function() {
+    function addCamarade() {
       const input = document.getElementById('new-camarade-name');
       const val = input.value.trim();
-      const existingNames = window.camarades.map(c => c.name);
+      const existingNames = camarades.map(c => c.name);
       if (val && !existingNames.includes(val)) {
-        window.camarades.push({ name: val, email: "", phone: "" });
-        window.camarades.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+        camarades.push({ name: val, email: "", phone: "" });
+        camarades.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
         input.value = '';
         saveToFirebase();
         renderAll();
       }
-    };
+    }
 
-    window.removeCamarade = function(idx) {
-      window.camarades.splice(idx, 1);
+    function removeCamarade(idx) {
+      camarades.splice(idx, 1);
       saveToFirebase();
       renderAll();
-    };
+    }
 
-    window.addSubject = function() {
+    function addSubject() {
       const cat = document.getElementById('new-subject-cat').value;
       const title = document.getElementById('new-subject-title').value.trim();
       if (title) {
-        window.meetingSubjects.push({ category: cat, title });
+        meetingSubjects.push({ category: cat, title });
         document.getElementById('new-subject-title').value = '';
         saveToFirebase();
         renderAll();
       }
-    };
+    }
 
-    window.removeSubject = function(idx) {
-      window.meetingSubjects.splice(idx, 1);
+    function removeSubject(idx) {
+      meetingSubjects.splice(idx, 1);
       saveToFirebase();
       renderAll();
-    };
+    }
 
-    window.addStatus = function() {
+    function addStatus() {
       const code = document.getElementById('new-status-code').value.trim().toUpperCase();
       const label = document.getElementById('new-status-label').value.trim();
       const bg = document.getElementById('new-status-bg').value;
       const color = document.getElementById('new-status-color').value;
 
       if (code && label) {
-        window.statuses.push({ code, label, bg, color, locked: false });
+        statuses.push({ code, label, bg, color, locked: false });
         document.getElementById('new-status-code').value = '';
         document.getElementById('new-status-label').value = '';
         saveToFirebase();
         renderAll();
       }
-    };
+    }
 
-    window.removeStatus = function(idx) {
-      window.statuses.splice(idx, 1);
+    function removeStatus(idx) {
+      statuses.splice(idx, 1);
       saveToFirebase();
       renderAll();
-    };
+    }
+
+    renderAll();
   </script>
 </body>
 </html>
