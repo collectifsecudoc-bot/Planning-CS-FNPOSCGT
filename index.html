@@ -5,34 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PLANNING MENSUEL COLLECTIF SÉCU FNPOS CGT</title>
   
-  <!-- SDK Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyACG_8DoHZIzt3-CraQ_YrzQHuCR_FizC8",
-      authDomain: "planning-collectif-secu.firebaseapp.com",
-      databaseURL: "https://planning-collectif-secu-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "planning-collectif-secu",
-      storageBucket: "planning-collectif-secu.firebasestorage.app",
-      messagingSenderId: "1080712912870",
-      appId: "1:1080712912870:web:cd0ceb416b18140d1a8027"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    window.db = db;
-    window.dbRef = ref;
-    window.dbSet = set;
-    window.dbOnValue = onValue;
-    window.dbPush = push;
-    window.dbRemove = remove;
-    
-    window.initFirebaseSync();
-  </script>
-
   <style>
     :root {
       --cgt-red: #d32f2f;
@@ -715,8 +687,26 @@
     </div>
   </div>
 
-  <script>
-    let defaultCamarades = [
+  <!-- JavaScript principal et initialisation Firebase intégrée -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyACG_8DoHZIzt3-CraQ_YrzQHuCR_FizC8",
+      authDomain: "planning-collectif-secu.firebaseapp.com",
+      databaseURL: "https://planning-collectif-secu-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "planning-collectif-secu",
+      storageBucket: "planning-collectif-secu.firebasestorage.app",
+      messagingSenderId: "1080712912870",
+      appId: "1:1080712912870:web:cd0ceb416b18140d1a8027"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Données par défaut
+    const defaultCamarades = [
       { name: "Adeline", email: "", phone: "" },
       { name: "Benjamin", email: "", phone: "" },
       { name: "Carole", email: "", phone: "" },
@@ -734,7 +724,7 @@
       { name: "Yves", email: "", phone: "" }
     ].sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
 
-    let defaultSubjects = [
+    const defaultSubjects = [
       { category: "Collectif Sécu", title: "Réunion Plénière Collectif Sécu" },
       { category: "Collectif Sécu", title: "Point d'actualité Sécu" },
       { category: "Ucanss", title: "Intersyndicale" },
@@ -784,10 +774,7 @@
       { category: "Fédé", title: "Visio bases" }
     ];
 
-    let camarades = [];
-    let meetingSubjects = defaultSubjects;
-
-    let statuses = [
+    const defaultStatuses = [
       { code: "", label: "-", bg: "transparent", color: "#333", locked: false },
       { code: "RU", label: "Réunion Ucanss", bg: "var(--ucanss-blue)", color: "#ffffff", locked: true },
       { code: "RF", label: "Réunion Fédé", bg: "var(--fede-red)", color: "#ffffff", locked: true },
@@ -803,10 +790,14 @@
       { code: "VI", label: "Visio", bg: "#9c27b0", color: "#ffffff", locked: false }
     ];
 
-    let meetings = [];
-    let cellStatuses = [];
-    let isModalEditing = false;
-    let currentView = 'planning';
+    // Variables d'état globales
+    window.camarades = [];
+    window.meetingSubjects = defaultSubjects;
+    window.statuses = defaultStatuses;
+    window.meetings = [];
+    window.cellStatuses = [];
+    window.isModalEditing = false;
+    window.currentView = 'planning';
     let isSyncingFromFirebase = false;
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -831,44 +822,41 @@
     selectYear.addEventListener('change', renderAll);
     document.getElementById('form-meeting').addEventListener('submit', handleMeetingSubmit);
 
-    window.initFirebaseSync = function() {
-      const dbRef = window.dbRef;
-      const dbOnValue = window.dbOnValue;
-      const db = window.db;
+    // Synchronisation avec Firebase
+    onValue(ref(db, 'planningData'), (snapshot) => {
+      const data = snapshot.val();
+      isSyncingFromFirebase = true;
+      if (data) {
+        window.cellStatuses = data.cellStatuses || [];
+        window.meetings = data.meetings || [];
+        window.camarades = (data.camarades && data.camarades.length > 0) ? data.camarades : defaultCamarades;
+        window.meetingSubjects = (data.meetingSubjects && data.meetingSubjects.length > 0) ? data.meetingSubjects : defaultSubjects;
+        window.statuses = (data.statuses && data.statuses.length > 0) ? data.statuses : defaultStatuses;
+      } else {
+        window.camarades = defaultCamarades;
+        window.meetingSubjects = defaultSubjects;
+        window.statuses = defaultStatuses;
+        window.cellStatuses = [];
+        window.meetings = [];
+        saveToFirebase();
+      }
+      isSyncingFromFirebase = false;
+      renderAll();
+    });
 
-      dbOnValue(dbRef(db, 'planningData'), (snapshot) => {
-        const data = snapshot.val();
-        isSyncingFromFirebase = true;
-        if (data) {
-          cellStatuses = data.cellStatuses || [];
-          meetings = data.meetings || [];
-          camarades = (data.camarades && data.camarades.length > 0) ? data.camarades : defaultCamarades;
-        } else {
-          camarades = defaultCamarades;
-          cellStatuses = [];
-          meetings = [];
-          saveToFirebase();
-        }
-        isSyncingFromFirebase = false;
-        renderAll();
+    window.saveToFirebase = function() {
+      if (isSyncingFromFirebase) return;
+      set(ref(db, 'planningData'), {
+        cellStatuses: window.cellStatuses,
+        meetings: window.meetings,
+        camarades: window.camarades,
+        meetingSubjects: window.meetingSubjects,
+        statuses: window.statuses
       });
     };
 
-    function saveToFirebase() {
-      if (isSyncingFromFirebase) return;
-      const db = window.db;
-      const dbRef = window.dbRef;
-      const dbSet = window.dbSet;
-
-      dbSet(dbRef(db, 'planningData'), {
-        cellStatuses: cellStatuses,
-        meetings: meetings,
-        camarades: camarades
-      });
-    }
-
-    function switchView(viewName) {
-      currentView = viewName;
+    window.switchView = function(viewName) {
+      window.currentView = viewName;
       document.getElementById('view-planning').classList.remove('active');
       document.getElementById('view-directory').classList.remove('active');
       document.getElementById('btn-tab-planning').classList.remove('active');
@@ -886,7 +874,7 @@
         planningControls.forEach(el => el.style.display = 'none');
         renderDirectory();
       }
-    }
+    };
 
     function isJourFerie(date) {
       const annee = date.getFullYear();
@@ -931,7 +919,7 @@
       const ucanssGroup = document.createElement('optgroup'); ucanssGroup.label = "--- Réunions Ucanss ---";
       const fedeGroup = document.createElement('optgroup'); fedeGroup.label = "--- Réunions Fédé ---";
 
-      meetingSubjects.sort((a,b) => a.title.localeCompare(b.title, 'fr')).forEach(s => {
+      window.meetingSubjects.slice().sort((a,b) => a.title.localeCompare(b.title, 'fr')).forEach(s => {
         const opt = document.createElement('option');
         opt.value = JSON.stringify(s);
         opt.textContent = `[${s.category}] ${s.title}`;
@@ -945,19 +933,19 @@
       subjectSelect.appendChild(fedeGroup);
     }
 
-    function toggleOtherInput() {
+    window.toggleOtherInput = function() {
       const cb = document.getElementById('m-other-cb');
       const input = document.getElementById('m-other-name');
       input.style.display = cb.checked ? 'inline-block' : 'none';
       if (!cb.checked) input.value = '';
-    }
+    };
 
-    function toggleEditPanel() {
+    window.toggleEditPanel = function() {
       const panel = document.getElementById('edit-panel');
       const isVisible = panel.style.display === 'block';
       panel.style.display = isVisible ? 'none' : 'block';
       if (!isVisible) renderEditLists();
-    }
+    };
 
     function getDaysInMonth(month, year) {
       return new Date(year, month + 1, 0).getDate();
@@ -975,19 +963,19 @@
       renderCheckboxes();
       renderMeetingsTable();
       renderEditLists();
-      if (currentView === 'directory') renderDirectory();
+      if (window.currentView === 'directory') renderDirectory();
     }
 
-    function renderDirectory() {
+    window.renderDirectory = function() {
       const container = document.getElementById('directory-grid-container');
       const searchVal = document.getElementById('directory-search-input').value.trim().toLowerCase();
       container.innerHTML = '';
 
-      const filtered = camarades.filter(c => c.name.toLowerCase().includes(searchVal));
+      const filtered = window.camarades.filter(c => c.name.toLowerCase().includes(searchVal));
       document.getElementById('directory-count').textContent = `${filtered.length} camarade(s) affiché(s)`;
 
       filtered.forEach(c => {
-        const originalIndex = camarades.findIndex(item => item.name === c.name);
+        const originalIndex = window.camarades.findIndex(item => item.name === c.name);
         const emailContent = c.email ? `<a href="mailto:${c.email}">${c.email}</a>` : '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
         const phoneContent = c.phone ? `<a href="tel:${c.phone}">${c.phone}</a>` : '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
 
@@ -1003,7 +991,7 @@
         `;
         container.appendChild(card);
       });
-    }
+    };
 
     function renderTableCamarades(month, year, totalDays) {
       const headerDays = document.getElementById('header-days');
@@ -1034,7 +1022,7 @@
       }
 
       body.innerHTML = '';
-      camarades.forEach((c, index) => {
+      window.camarades.forEach((c, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="col-name" onclick="openContactModal(${index})" title="Cliquer pour voir/modifier les coordonnées">${c.name}</td>`;
 
@@ -1057,7 +1045,7 @@
             if (isInactive) {
               select.disabled = true;
             } else {
-              statuses.forEach(st => {
+              window.statuses.forEach(st => {
                 const opt = document.createElement('option');
                 opt.value = st.code;
                 opt.textContent = st.code || '-';
@@ -1065,7 +1053,7 @@
                 select.appendChild(opt);
               });
 
-              const saved = cellStatuses.find(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
+              const saved = window.cellStatuses.find(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
               if (saved) select.value = saved.code;
 
               updateSelectStyle(select);
@@ -1074,12 +1062,12 @@
                 const val = e.target.value;
                 updateSelectStyle(e.target);
                 
-                const existingIdx = cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
+                const existingIdx = window.cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
                 if (val === "") {
-                  if (existingIdx !== -1) cellStatuses.splice(existingIdx, 1);
+                  if (existingIdx !== -1) window.cellStatuses.splice(existingIdx, 1);
                 } else {
-                  if (existingIdx !== -1) cellStatuses[existingIdx].code = val;
-                  else cellStatuses.push({ camarade: c.name, year, month, day: d, slot, code: val });
+                  if (existingIdx !== -1) window.cellStatuses[existingIdx].code = val;
+                  else window.cellStatuses.push({ camarade: c.name, year, month, day: d, slot, code: val });
                 }
                 saveToFirebase();
               });
@@ -1089,9 +1077,9 @@
                   e.preventDefault();
                   select.value = "";
                   updateSelectStyle(select);
-                  const existingIdx = cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
+                  const existingIdx = window.cellStatuses.findIndex(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
                   if (existingIdx !== -1) {
-                    cellStatuses.splice(existingIdx, 1);
+                    window.cellStatuses.splice(existingIdx, 1);
                     saveToFirebase();
                   }
                 }
@@ -1106,16 +1094,16 @@
       applyMeetingsToCamaradesTable();
     }
 
-    function openContactModal(index) {
-      const c = camarades[index];
+    window.openContactModal = function(index) {
+      const c = window.camarades[index];
       document.getElementById('modal-camarade-index').value = index;
       document.getElementById('modal-camarade-name').textContent = `Coordonnées : ${c.name}`;
       document.getElementById('contact-email').value = c.email || '';
       document.getElementById('contact-phone').value = c.phone || '';
-      isModalEditing = false;
+      window.isModalEditing = false;
       setModalReadOnly(true);
       document.getElementById('modal-contact').style.display = 'flex';
-    }
+    };
 
     function setModalReadOnly(isReadOnly) {
       const emailInput = document.getElementById('contact-email');
@@ -1136,29 +1124,29 @@
       }
     }
 
-    function toggleModalEditMode() {
-      if (!isModalEditing) {
-        isModalEditing = true;
+    window.toggleModalEditMode = function() {
+      if (!window.isModalEditing) {
+        window.isModalEditing = true;
         setModalReadOnly(false);
       } else {
         const index = document.getElementById('modal-camarade-index').value;
         if (index !== '') {
-          camarades[index].email = document.getElementById('contact-email').value.trim();
-          camarades[index].phone = document.getElementById('contact-phone').value.trim();
+          window.camarades[index].email = document.getElementById('contact-email').value.trim();
+          window.camarades[index].phone = document.getElementById('contact-phone').value.trim();
           saveToFirebase();
         }
         closeContactModal();
-        if (currentView === 'directory') renderDirectory();
+        if (window.currentView === 'directory') renderDirectory();
       }
-    }
+    };
 
-    function closeContactModal() {
+    window.closeContactModal = function() {
       document.getElementById('modal-contact').style.display = 'none';
-      isModalEditing = false;
-    }
+      window.isModalEditing = false;
+    };
 
     function updateSelectStyle(selectEl) {
-      const st = statuses.find(s => s.code === selectEl.value);
+      const st = window.statuses.find(s => s.code === selectEl.value);
       if (st) {
         selectEl.style.backgroundColor = st.bg;
         selectEl.style.color = st.color;
@@ -1187,7 +1175,7 @@
     function renderCheckboxes() {
       const container = document.getElementById('camarades-checkboxes');
       container.innerHTML = '';
-      camarades.forEach(c => {
+      window.camarades.forEach(c => {
         container.innerHTML += `<label><input type="checkbox" value="${c.name}" class="m-camarade-cb"> ${c.name}</label>`;
       });
     }
@@ -1211,12 +1199,12 @@
       const editingId = document.getElementById('editing-meeting-id').value;
 
       if (editingId) {
-        const idx = meetings.findIndex(m => m.id == editingId);
+        const idx = window.meetings.findIndex(m => m.id == editingId);
         if (idx !== -1) {
-          meetings[idx] = { id: parseInt(editingId), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades };
+          window.meetings[idx] = { id: parseInt(editingId), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades };
         }
       } else {
-        meetings.push({ id: Date.now(), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades });
+        window.meetings.push({ id: Date.now(), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades });
       }
 
       resetMeetingForm();
@@ -1224,8 +1212,8 @@
       renderAll();
     }
 
-    function editMeeting(id) {
-      const m = meetings.find(item => item.id === id);
+    window.editMeeting = function(id) {
+      const m = window.meetings.find(item => item.id === id);
       if (!m) return;
       if (m.month !== undefined) selectMonth.value = m.month;
       if (m.year !== undefined) selectYear.value = m.year;
@@ -1251,7 +1239,7 @@
       const otherInput = document.getElementById('m-other-name');
       otherCb.checked = false; otherInput.value = '';
 
-      const namesList = camarades.map(c => c.name);
+      const namesList = window.camarades.map(c => c.name);
       m.camarades.forEach(c => {
         if (namesList.includes(c)) {
           const cb = document.querySelector(`.m-camarade-cb[value="${c}"]`);
@@ -1266,9 +1254,9 @@
       document.getElementById('btn-submit-meeting').textContent = "Enregistrer les modifications";
       document.getElementById('btn-cancel-meeting').style.display = "inline-block";
       document.getElementById('form-meeting').scrollIntoView({ behavior: 'smooth' });
-    }
+    };
 
-    function resetMeetingForm() {
+    window.resetMeetingForm = function() {
       document.getElementById('editing-meeting-id').value = '';
       document.getElementById('m-detail').value = '';
       document.getElementById('m-visio').checked = false;
@@ -1279,14 +1267,14 @@
       toggleOtherInput();
       document.getElementById('btn-submit-meeting').textContent = "Ajouter la réunion";
       document.getElementById('btn-cancel-meeting').style.display = "none";
-    }
+    };
 
-    function deleteMeeting(id) {
-      meetings = meetings.filter(m => m.id !== id);
+    window.deleteMeeting = function(id) {
+      window.meetings = window.meetings.filter(m => m.id !== id);
       if (document.getElementById('editing-meeting-id').value == id) resetMeetingForm();
       saveToFirebase();
       renderAll();
-    }
+    };
 
     function renderMeetingsTable() {
       const body = document.getElementById('body-meetings');
@@ -1294,7 +1282,7 @@
       const currentYear = parseInt(selectYear.value);
       body.innerHTML = '';
 
-      const filteredMeetings = meetings.filter(m => {
+      const filteredMeetings = window.meetings.filter(m => {
         const mMonth = m.month !== undefined ? m.month : currentMonth;
         const mYear = m.year !== undefined ? m.year : currentYear;
         return mMonth === currentMonth && mYear === currentYear;
@@ -1337,7 +1325,7 @@
       const currentMonth = parseInt(selectMonth.value);
       const currentYear = parseInt(selectYear.value);
 
-      meetings.forEach(m => {
+      window.meetings.forEach(m => {
         const mMonth = m.month !== undefined ? m.month : currentMonth;
         const mYear = m.year !== undefined ? m.year : currentYear;
 
@@ -1363,13 +1351,13 @@
     function renderEditLists() {
       const cList = document.getElementById('edit-camarades-list');
       cList.innerHTML = '';
-      camarades.forEach((c, idx) => {
+      window.camarades.forEach((c, idx) => {
         cList.innerHTML += `<li><span>${c.name}</span><button class="btn-del" onclick="removeCamarade(${idx})">Supprimer</button></li>`;
       });
 
       const subList = document.getElementById('edit-subjects-list');
       subList.innerHTML = '';
-      meetingSubjects.forEach((sub, idx) => {
+      window.meetingSubjects.forEach((sub, idx) => {
         let badgeClass = 'badge-ucanss';
         if (sub.category === 'Collectif Sécu') badgeClass = 'badge-cs';
         else if (sub.category === 'Fédé') badgeClass = 'badge-fede';
@@ -1378,71 +1366,69 @@
 
       const sList = document.getElementById('edit-statuses-list');
       sList.innerHTML = '';
-      statuses.forEach((st, idx) => {
+      window.statuses.forEach((st, idx) => {
         if (st.code === "") return;
         const actionBtn = st.locked ? `<span style="font-size: 0.75rem; color: #777; font-style: italic;">Système</span>` : `<button class="btn-del" onclick="removeStatus(${idx})">Supprimer</button>`;
         sList.innerHTML += `<li><span><strong style="background:${st.bg}; color:${st.color}; padding:2px 5px; border-radius:3px;">${st.code}</strong> ${st.label}</span>${actionBtn}</li>`;
       });
     }
 
-    function addCamarade() {
+    window.addCamarade = function() {
       const input = document.getElementById('new-camarade-name');
       const val = input.value.trim();
-      const existingNames = camarades.map(c => c.name);
+      const existingNames = window.camarades.map(c => c.name);
       if (val && !existingNames.includes(val)) {
-        camarades.push({ name: val, email: "", phone: "" });
-        camarades.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+        window.camarades.push({ name: val, email: "", phone: "" });
+        window.camarades.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
         input.value = '';
         saveToFirebase();
         renderAll();
       }
-    }
+    };
 
-    function removeCamarade(idx) {
-      camarades.splice(idx, 1);
+    window.removeCamarade = function(idx) {
+      window.camarades.splice(idx, 1);
       saveToFirebase();
       renderAll();
-    }
+    };
 
-    function addSubject() {
+    window.addSubject = function() {
       const cat = document.getElementById('new-subject-cat').value;
       const title = document.getElementById('new-subject-title').value.trim();
       if (title) {
-        meetingSubjects.push({ category: cat, title });
+        window.meetingSubjects.push({ category: cat, title });
         document.getElementById('new-subject-title').value = '';
         saveToFirebase();
         renderAll();
       }
-    }
+    };
 
-    function removeSubject(idx) {
-      meetingSubjects.splice(idx, 1);
+    window.removeSubject = function(idx) {
+      window.meetingSubjects.splice(idx, 1);
       saveToFirebase();
       renderAll();
-    }
+    };
 
-    function addStatus() {
+    window.addStatus = function() {
       const code = document.getElementById('new-status-code').value.trim().toUpperCase();
       const label = document.getElementById('new-status-label').value.trim();
       const bg = document.getElementById('new-status-bg').value;
       const color = document.getElementById('new-status-color').value;
 
       if (code && label) {
-        statuses.push({ code, label, bg, color, locked: false });
+        window.statuses.push({ code, label, bg, color, locked: false });
         document.getElementById('new-status-code').value = '';
         document.getElementById('new-status-label').value = '';
         saveToFirebase();
         renderAll();
       }
-    }
+    };
 
-    function removeStatus(idx) {
-      statuses.splice(idx, 1);
+    window.removeStatus = function(idx) {
+      window.statuses.splice(idx, 1);
       saveToFirebase();
       renderAll();
-    }
-
-    renderAll();
+    };
   </script>
 </body>
 </html>
