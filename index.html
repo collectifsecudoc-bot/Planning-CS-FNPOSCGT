@@ -651,8 +651,8 @@
           <input type="checkbox" id="m-visio"> 🎧 Visio
         </label>
 
-        <label for="m-doc-url">🔗 Lien OneDrive :</label>
-        <input type="url" id="m-doc-url" placeholder="https://onedrive.live.com/..." style="min-width: 220px;">
+        <label for="m-doc-url">🔗 Lien :</label>
+        <input type="url" id="m-doc-url" placeholder="https://..." style="min-width: 220px;">
 
         <div class="checkbox-group">
           <span style="font-weight:bold; font-size:0.8rem;">Présents :</span>
@@ -684,6 +684,43 @@
             </tr>
           </thead>
           <tbody id="body-meetings"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Activité du Collectif</h2>
+
+      <form class="add-meeting-form" id="form-activity">
+        <input type="hidden" id="editing-activity-id" value="">
+
+        <label for="a-title">Objet :</label>
+        <input type="text" id="a-title" required placeholder="Objet de l'activité" style="min-width: 220px;">
+
+        <label for="a-deadline">Date limite :</label>
+        <input type="date" id="a-deadline" required>
+
+        <div class="checkbox-group">
+          <span style="font-weight:bold; font-size:0.8rem;">À faire par :</span>
+          <div id="activity-camarades-checkboxes" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;"></div>
+        </div>
+
+        <button type="submit" class="btn-add" id="btn-submit-activity">Valider l'activité</button>
+        <button type="button" class="btn-cancel" id="btn-cancel-activity" style="display: none;" onclick="resetActivityForm()">Annuler</button>
+      </form>
+
+      <div class="table-container">
+        <table id="table-activities">
+          <thead>
+            <tr>
+              <th style="width: 35%;">Activité</th>
+              <th style="width: 20%;">Date limite</th>
+              <th style="width: 30%;">Camarade(s) responsable(s)</th>
+              <th style="width: 10%;">Terminé</th>
+              <th style="width: 15%;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="body-activities"></tbody>
         </table>
       </div>
     </section>
@@ -832,6 +869,7 @@
 
     let statuses = defaultStatuses;
     let meetings = [];
+    let activities = [];
     let cellStatuses = [];
     let isModalEditing = false;
     let currentView = 'planning';
@@ -858,6 +896,7 @@
     selectMonth.addEventListener('change', renderAll);
     selectYear.addEventListener('change', renderAll);
     document.getElementById('form-meeting').addEventListener('submit', handleMeetingSubmit);
+    document.getElementById('form-activity').addEventListener('submit', handleActivitySubmit);
 
     window.initFirebaseSync = function() {
       const dbRef = window.dbRef;
@@ -871,7 +910,11 @@
         isSyncingFromFirebase = true;
         if (data) {
           cellStatuses = data.cellStatuses || [];
-          meetings = data.meetings || [];
+          meetings = Array.isArray(data.meetings) ? data.meetings.map(meeting => ({
+            ...meeting,
+            camarades: Array.isArray(meeting.camarades) ? meeting.camarades : []
+          })) : [];
+          activities = data.activities || [];
           camarades = (data.camarades && data.camarades.length > 0) ? data.camarades : defaultCamarades;
           if (Array.isArray(data.meetingSubjects) && data.meetingSubjects.length > 0) meetingSubjects = data.meetingSubjects;
           else { meetingSubjects = defaultSubjects; needsDataUpgrade = true; }
@@ -899,6 +942,7 @@
           statuses = defaultStatuses;
           cellStatuses = [];
           meetings = [];
+          activities = [];
           saveToFirebase();
         }
         isSyncingFromFirebase = false;
@@ -916,6 +960,7 @@
       dbSet(dbRef(db, 'planningData'), {
         cellStatuses: cellStatuses,
         meetings: meetings,
+        activities: activities,
         camarades: camarades,
         meetingSubjects: meetingSubjects,
         statuses: statuses
@@ -1000,6 +1045,14 @@
       subjectSelect.appendChild(fedeGroup);
     }
 
+    function renderActivityCamaradeCheckboxes() {
+      const container = document.getElementById('activity-camarades-checkboxes');
+      container.innerHTML = '';
+      camarades.forEach(c => {
+        container.innerHTML += `<label><input type="checkbox" value="${c.name}" class="a-camarade-cb"> ${c.name}</label>`;
+      });
+    }
+
     function toggleOtherInput() {
       const cb = document.getElementById('m-other-cb');
       const input = document.getElementById('m-other-name');
@@ -1058,7 +1111,9 @@
       renderTableCamarades(month, year, totalDays);
       updateMeetingDayOptions(month, totalDays);
       renderCheckboxes();
+      renderActivityCamaradeCheckboxes();
       renderMeetingsTable();
+      renderActivitiesTable();
       renderEditLists();
       if (currentView === 'directory') renderDirectory();
     }
@@ -1385,6 +1440,119 @@
       renderAll();
     }
 
+    function handleActivitySubmit(e) {
+      e.preventDefault();
+      const title = document.getElementById('a-title').value;
+      const deadline = document.getElementById('a-deadline').value;
+      const responsables = Array.from(document.querySelectorAll('.a-camarade-cb:checked')).map(cb => cb.value);
+      const editingId = document.getElementById('editing-activity-id').value;
+
+      if (!title || !deadline) return;
+      if (responsables.length === 0) {
+        alert('Sélectionnez au moins un camarade responsable.');
+        return;
+      }
+
+      const activity = {
+        title,
+        deadline,
+        responsables,
+        month: parseInt(selectMonth.value),
+        year: parseInt(selectYear.value)
+      };
+      if (editingId) {
+        const index = activities.findIndex(activityItem => activityItem.id == editingId);
+        if (index !== -1) {
+          activities[index] = {
+            ...activities[index],
+            ...activity,
+            id: parseInt(editingId),
+            completed: activities[index].completed === true
+          };
+        }
+      } else {
+        activities.push({ ...activity, id: Date.now(), completed: false });
+      }
+
+      resetActivityForm();
+      saveToFirebase();
+      renderAll();
+    }
+
+    function editActivity(id) {
+      const activity = activities.find(activityItem => activityItem.id === id);
+      if (!activity) return;
+
+      document.getElementById('editing-activity-id').value = activity.id;
+      document.getElementById('a-title').value = activity.title;
+      document.getElementById('a-deadline').value = activity.deadline;
+      document.querySelectorAll('.a-camarade-cb').forEach(cb => {
+        cb.checked = (activity.responsables || []).includes(cb.value);
+      });
+      document.getElementById('btn-submit-activity').textContent = "Enregistrer les modifications";
+      document.getElementById('btn-cancel-activity').style.display = "inline-block";
+      document.getElementById('form-activity').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetActivityForm() {
+      document.getElementById('editing-activity-id').value = '';
+      document.getElementById('a-deadline').value = '';
+      document.querySelectorAll('.a-camarade-cb').forEach(cb => cb.checked = false);
+      document.getElementById('btn-submit-activity').textContent = "Valider l'activité";
+      document.getElementById('btn-cancel-activity').style.display = "none";
+    }
+
+    function deleteActivity(id) {
+      activities = activities.filter(activity => activity.id !== id);
+      if (document.getElementById('editing-activity-id').value == id) resetActivityForm();
+      saveToFirebase();
+      renderAll();
+    }
+
+    function toggleActivityCompleted(id, completed) {
+      const activity = activities.find(activityItem => activityItem.id === id);
+      if (!activity) return;
+      activity.completed = completed;
+      saveToFirebase();
+      renderActivitiesTable();
+    }
+
+    function renderActivitiesTable() {
+      const body = document.getElementById('body-activities');
+      const currentMonth = parseInt(selectMonth.value);
+      const currentYear = parseInt(selectYear.value);
+      const currentPeriod = currentYear * 12 + currentMonth;
+      body.innerHTML = '';
+
+      activities.filter(activity => {
+        const activityPeriod = (activity.year !== undefined && activity.month !== undefined)
+          ? activity.year * 12 + activity.month
+          : currentPeriod;
+        const deadlinePeriod = activity.deadline
+          ? (() => {
+              const deadlineDate = new Date(`${activity.deadline}T00:00:00`);
+              return deadlineDate.getFullYear() * 12 + deadlineDate.getMonth();
+            })()
+          : currentPeriod;
+        return currentPeriod >= activityPeriod && (!activity.completed || currentPeriod <= deadlinePeriod);
+      }).slice().sort((a, b) => a.deadline.localeCompare(b.deadline)).forEach(activity => {
+        const row = document.createElement('tr');
+        const deadline = new Date(`${activity.deadline}T00:00:00`).toLocaleDateString('fr-FR');
+        const responsables = (activity.responsables || []).join(', ') || '<span style="color:#aaa; font-style:italic;">Aucun responsable renseigné</span>';
+        row.innerHTML = `
+          <td style="text-align:left; padding-left:10px;">${activity.title}</td>
+          <td>${deadline}</td>
+          <td style="text-align:left;">${responsables}</td>
+          <td><input type="checkbox" ${activity.completed === true ? 'checked' : ''} onchange="toggleActivityCompleted(${activity.id}, this.checked)"></td>
+          <td>
+            <button class="btn-edit-action" onclick="editActivity(${activity.id})">Modifier</button>
+            <button class="btn-del" onclick="deleteActivity(${activity.id})">Supprimer</button>
+          </td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
     function renderMeetingsTable() {
       const body = document.getElementById('body-meetings');
       const currentMonth = parseInt(selectMonth.value);
@@ -1408,8 +1576,9 @@
 
         const visioBadge = m.isVisio ? `<span class="badge-visio">🎧 Visio</span>` : '';
         const detailHtml = m.detail ? `<span class="meeting-detail-text">(${m.detail})</span>` : '';
-        const docHtml = m.docUrl ? `<a href="${m.docUrl}" target="_blank" class="doc-link">📁 Ouvrir OneDrive</a>` : '<span style="color:#aaa;">-</span>';
-        const camaradesPresentHtml = m.camarades.length > 0 ? m.camarades.join(', ') : '<span style="color:#aaa; font-style:italic;">Aucun participant renseigné</span>';
+        const docHtml = m.docUrl ? `<a href="${m.docUrl}" target="_blank" class="doc-link">📁 Ouvrir le lien</a>` : '<span style="color:#aaa;">-</span>';
+        const camaradesPresent = Array.isArray(m.camarades) ? m.camarades : [];
+        const camaradesPresentHtml = camaradesPresent.length > 0 ? camaradesPresent.join(', ') : '<span style="color:#aaa; font-style:italic;">Aucun participant renseigné</span>';
 
         tr.innerHTML = `
           <td>${dateFormatted}</td>
@@ -1446,7 +1615,7 @@
           if (m.category === 'Collectif Sécu') statusCode = 'CS';
           else if (m.category === 'Fédé') statusCode = 'RF';
 
-          m.camarades.forEach(camaradeName => {
+          (m.camarades || []).forEach(camaradeName => {
             const select = document.querySelector(`select[data-camarade="${camaradeName}"][data-day="${m.day}"][data-slot="${generalSlot}"]`);
             if (select) {
               select.value = statusCode;
