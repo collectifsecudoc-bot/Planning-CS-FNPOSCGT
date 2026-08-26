@@ -374,6 +374,43 @@
       font-weight: bold;
     }
 
+    .week-edit-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(72px, 1fr));
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .week-edit-day {
+      min-width: 72px;
+      padding: 6px 4px;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .week-edit-day strong,
+    .week-edit-day label {
+      display: block;
+      font-size: 0.75rem;
+    }
+
+    .week-edit-day strong {
+      margin-bottom: 5px;
+      color: var(--cgt-dark-red);
+    }
+
+    .week-edit-day label {
+      margin-top: 4px;
+      color: #555;
+    }
+
+    .week-edit-day select {
+      width: 100%;
+      padding: 3px 1px;
+      font-weight: bold;
+    }
+
     .modal-overlay {
       display: none;
       position: fixed;
@@ -786,6 +823,27 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-week-edit">
+    <div class="modal-content" style="max-width: 760px; width: 95%;">
+      <h3 id="week-edit-title">Modifier la semaine</h3>
+      <div id="week-edit-grid" class="week-edit-grid"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeWeekEditModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-week-edit-prompt">
+    <div class="modal-content">
+      <h3>Modifier la semaine ?</h3>
+      <p id="week-edit-prompt-message"></p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="cancelWeekEditPrompt()">Non</button>
+        <button class="btn-add" onclick="confirmWeekEditPrompt()">Oui</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-edit-access">
     <div class="modal-content">
       <h3>Accès édition / configuration</h3>
@@ -941,6 +999,7 @@
     let pendingMeetingRemoval = null;
     let pendingNotification = null;
     let pendingActivityReminder = null;
+    let pendingWeekEdit = null;
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
     const monthShortNames = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -1299,11 +1358,13 @@
 
               const saved = cellStatuses.find(s => s.camarade === c.name && s.year === year && s.month === month && s.day === d && s.slot === slot);
               if (saved) select.value = saved.code;
+              select.dataset.previousValue = select.value;
 
               updateSelectStyle(select);
 
               select.addEventListener('change', (e) => {
                 const val = e.target.value;
+                const previousValue = e.target.dataset.previousValue || '';
                 clearStatusCodeError(e.target);
                 const meetingsToLeave = meetings.filter(meeting => {
                   const meetingMonth = meeting.month !== undefined ? meeting.month : month;
@@ -1328,7 +1389,9 @@
                   if (existingIdx !== -1) cellStatuses[existingIdx].code = val;
                   else cellStatuses.push({ camarade: c.name, year, month, day: d, slot, code: val });
                 }
+                e.target.dataset.previousValue = val;
                 saveToFirebase();
+                if (previousValue === '' && val !== '') openWeekEditPrompt(c.name, month, year, d);
               });
 
               select.addEventListener('keydown', (e) => {
@@ -1375,6 +1438,107 @@
         body.appendChild(tr);
       });
       applyMeetingsToCamaradesTable();
+    }
+
+    function getWeekStart(year, month, day) {
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      date.setDate(date.getDate() - daysFromMonday);
+      return date;
+    }
+
+    function openWeekEditModal(camaradeName, month, year, day) {
+      const grid = document.getElementById('week-edit-grid');
+      const weekStart = getWeekStart(year, month, day);
+      const emoji = {
+        lulu: '😉',
+        romain: '💀',
+        karim: '👑'
+      }[camaradeName.toLowerCase()] || '';
+      document.getElementById('week-edit-title').textContent = `Modifier la semaine de ${camaradeName}${emoji ? ` ${emoji}` : ''}`;
+      grid.innerHTML = '';
+
+      for (let offset = 0; offset < 5; offset++) {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + offset);
+        const dateMonth = date.getMonth();
+        const dateYear = date.getFullYear();
+        const dateDay = date.getDate();
+        const isOutsideMonth = dateMonth !== month || dateYear !== year;
+        const isInactive = isOutsideMonth || date.getDay() === 0 || date.getDay() === 6 || isJourFerie(date);
+        const dayBox = document.createElement('div');
+        dayBox.className = 'week-edit-day';
+        dayBox.innerHTML = `<strong>${dayFullNames[date.getDay()]}<br>${dateDay}/${dateMonth + 1}</strong>`;
+
+        ['M', 'A'].forEach(slot => {
+          const label = document.createElement('label');
+          label.textContent = slot === 'M' ? 'Matin' : 'Après-midi';
+          const select = document.createElement('select');
+          select.dataset.camarade = camaradeName;
+          select.dataset.day = dateDay;
+          select.dataset.slot = slot;
+          statuses.forEach(status => {
+            const option = document.createElement('option');
+            option.value = status.code;
+            option.textContent = status.code || '-';
+            option.title = status.label || '';
+            select.appendChild(option);
+          });
+          const saved = cellStatuses.find(status => status.camarade === camaradeName && status.year === year && status.month === month && status.day === dateDay && status.slot === slot);
+          select.value = saved ? saved.code : '';
+          select.disabled = isInactive;
+          updateSelectStyle(select);
+          select.addEventListener('change', event => {
+            const tableSelect = document.querySelector(`select.status-select[data-camarade="${camaradeName}"][data-day="${dateDay}"][data-slot="${slot}"]`);
+            setCellStatus(camaradeName, year, month, dateDay, slot, event.target.value);
+            if (tableSelect) {
+              tableSelect.value = event.target.value;
+              updateSelectStyle(tableSelect);
+            }
+            updateSelectStyle(event.target);
+          });
+          label.appendChild(select);
+          dayBox.appendChild(label);
+        });
+        grid.appendChild(dayBox);
+      }
+      document.getElementById('modal-week-edit').style.display = 'flex';
+    }
+
+    function openWeekEditPrompt(camaradeName, month, year, day) {
+      pendingWeekEdit = { camaradeName, month, year, day };
+      document.getElementById('week-edit-prompt-message').textContent = `Veux-tu modifier toute la semaine pour ${camaradeName} ?`;
+      document.getElementById('modal-week-edit-prompt').style.display = 'flex';
+    }
+
+    function confirmWeekEditPrompt() {
+      if (!pendingWeekEdit) return;
+      const { camaradeName, month, year, day } = pendingWeekEdit;
+      pendingWeekEdit = null;
+      document.getElementById('modal-week-edit-prompt').style.display = 'none';
+      openWeekEditModal(camaradeName, month, year, day);
+    }
+
+    function cancelWeekEditPrompt() {
+      pendingWeekEdit = null;
+      document.getElementById('modal-week-edit-prompt').style.display = 'none';
+    }
+
+    function setCellStatus(camaradeName, year, month, day, slot, code) {
+      const existingIdx = cellStatuses.findIndex(status => status.camarade === camaradeName && status.year === year && status.month === month && status.day === day && status.slot === slot);
+      if (code === '') {
+        if (existingIdx !== -1) cellStatuses.splice(existingIdx, 1);
+      } else if (existingIdx !== -1) {
+        cellStatuses[existingIdx].code = code;
+      } else {
+        cellStatuses.push({ camarade: camaradeName, year, month, day, slot, code });
+      }
+      saveToFirebase();
+    }
+
+    function closeWeekEditModal() {
+      document.getElementById('modal-week-edit').style.display = 'none';
     }
 
     function openContactModal(index) {
