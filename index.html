@@ -794,7 +794,7 @@
       <div id="edit-access-error" style="display:none; color:var(--cgt-dark-red); font-size:0.85rem; margin-top:8px;">Code incorrect.</div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeEditAccessModal()">Annuler</button>
-        <button class="btn-add" onclick="validateEditAccessCode()">Valider</button>
+        <button class="btn-add" id="edit-access-submit" onclick="validateEditAccessCode()">Valider</button>
       </div>
     </div>
   </div>
@@ -964,6 +964,19 @@
     selectYear.addEventListener('change', renderAll);
     document.getElementById('form-meeting').addEventListener('submit', handleMeetingSubmit);
     document.getElementById('form-activity').addEventListener('submit', handleActivitySubmit);
+
+    const editAccessInput = document.getElementById('edit-access-code');
+    editAccessInput.addEventListener('input', () => {
+      if (/^\d{4}$/.test(editAccessInput.value)) {
+        document.getElementById('edit-access-submit').focus();
+      }
+    });
+    editAccessInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && /^\d{4}$/.test(editAccessInput.value)) {
+        event.preventDefault();
+        validateEditAccessCode();
+      }
+    });
 
     window.initFirebaseSync = function() {
       const dbRef = window.dbRef;
