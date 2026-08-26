@@ -471,6 +471,12 @@
       margin-right: 4px;
     }
 
+    button.btn-notify {
+      padding: 2px 5px;
+      font-size: 0.7rem;
+      margin-left: 3px;
+    }
+
     button.btn-del {
       background-color: #d9534f;
       color: white;
@@ -786,6 +792,17 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-notify-confirmation">
+    <div class="modal-content">
+      <h3>Notification Discord</h3>
+      <p>Êtes-vous sûr de vouloir notifier une nouvelle fois les camarades sur Discord ?</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="cancelNotification()">Annuler</button>
+        <button class="btn-add" onclick="confirmNotification()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let defaultCamarades = [
       { name: "Adeline", email: "", phone: "", discordId: "1098601239463350345" },
@@ -893,6 +910,7 @@
     let currentView = 'planning';
     let isSyncingFromFirebase = false;
     let pendingMeetingRemoval = null;
+    let pendingNotification = null;
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
     const monthShortNames = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -1457,6 +1475,26 @@
       }
     }
 
+    function notifyMeetingDocument(meetingId) {
+      const meeting = meetings.find(item => item.id === meetingId);
+      if (!meeting || !meeting.docUrl) return;
+      pendingNotification = meeting;
+      document.getElementById('modal-notify-confirmation').style.display = 'flex';
+    }
+
+    function cancelNotification() {
+      pendingNotification = null;
+      document.getElementById('modal-notify-confirmation').style.display = 'none';
+    }
+
+    function confirmNotification() {
+      if (!pendingNotification) return;
+      const meeting = pendingNotification;
+      pendingNotification = null;
+      document.getElementById('modal-notify-confirmation').style.display = 'none';
+      notifyDiscordDocumentAdded(meeting.docUrl, meeting.title, meeting.camarades || []);
+    }
+
     function handleMeetingSubmit(e) {
       e.preventDefault();
       const subjectObj = JSON.parse(document.getElementById('m-title').value);
@@ -1709,6 +1747,7 @@
           <td style="text-align:left;">${camaradesPresentHtml}</td>
           <td>
             <button class="btn-edit-action" onclick="editMeeting(${m.id})">Modifier</button>
+            ${m.docUrl ? `<button type="button" class="btn-edit-action btn-notify" onclick="notifyMeetingDocument(${m.id})">🔔</button>` : ''}
             <button class="btn-del" onclick="deleteMeeting(${m.id})">Supprimer</button>
           </td>
         `;
