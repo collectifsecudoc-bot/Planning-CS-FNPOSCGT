@@ -803,6 +803,17 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-activity-reminder-confirmation">
+    <div class="modal-content">
+      <h3>Rappel Discord</h3>
+      <p>Êtes-vous sûr de vouloir notifier une nouvelle fois les responsables de cette activité sur Discord ?</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="cancelActivityReminder()">Annuler</button>
+        <button class="btn-add" onclick="confirmActivityReminder()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let defaultCamarades = [
       { name: "Adeline", email: "", phone: "", discordId: "1098601239463350345" },
@@ -911,6 +922,7 @@
     let isSyncingFromFirebase = false;
     let pendingMeetingRemoval = null;
     let pendingNotification = null;
+    let pendingActivityReminder = null;
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
     const monthShortNames = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -1448,6 +1460,7 @@
     }
 
     const discordWebhookUrl = 'https://discord.com/api/webhooks/1542083119652274257/GlzwjC9TVF2NIBvCnGsQoUDjJ_NYACbogqKLXEN4tf2ttb8DWJFj4dHjCWNGTsMLx5UN';
+    const activityReminderWebhookUrl = 'https://discord.com/api/webhooks/1542114845615456297/YSkX_AgtmoLbY-TcXlaldRO-4n5XrjxrfEkIOa8AVEpzNxUJTVYAXHubFSVuG0yOvqbI';
 
     async function notifyDiscordDocumentAdded(docUrl, meetingTitle, camaradeNames) {
       const mentions = camaradeNames.map(name => {
@@ -1493,6 +1506,56 @@
       pendingNotification = null;
       document.getElementById('modal-notify-confirmation').style.display = 'none';
       notifyDiscordDocumentAdded(meeting.docUrl, meeting.title, meeting.camarades || []);
+    }
+
+    async function notifyActivityReminder(activity) {
+      const responsibleNames = activity.responsables || [];
+      const mentions = responsibleNames.map(name => {
+        const camarade = camarades.find(item => item.name === name);
+        return camarade?.discordId ? `<@${camarade.discordId}>` : name;
+      });
+      const discordIds = responsibleNames
+        .map(name => camarades.find(item => item.name === name)?.discordId)
+        .filter(Boolean);
+      const responsibleText = mentions.length > 0 ? mentions.join(', ') : 'Aucun responsable renseigné';
+      const deadline = activity.deadline
+        ? new Date(`${activity.deadline}T00:00:00`).toLocaleDateString('fr-FR')
+        : 'Aucune date limite renseignée';
+      const message = `Bonjour ${responsibleText}, petit rappel d'activité à faire avant le ${deadline} : ${activity.title}. Si la tâche est terminée, pensez à cocher Terminer sur le planning. Bonne journée camarade(s).`;
+
+      try {
+        const response = await fetch(activityReminderWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: message,
+            allowed_mentions: { users: [...new Set(discordIds)] }
+          })
+        });
+        if (!response.ok) throw new Error(`Discord HTTP ${response.status}`);
+      } catch (error) {
+        console.error('Le rappel Discord de l’activité n’a pas pu être envoyé :', error);
+      }
+    }
+
+    function remindActivity(activityId) {
+      const activity = activities.find(item => item.id === activityId);
+      if (!activity) return;
+      pendingActivityReminder = activity;
+      document.getElementById('modal-activity-reminder-confirmation').style.display = 'flex';
+    }
+
+    function cancelActivityReminder() {
+      pendingActivityReminder = null;
+      document.getElementById('modal-activity-reminder-confirmation').style.display = 'none';
+    }
+
+    function confirmActivityReminder() {
+      if (!pendingActivityReminder) return;
+      const activity = pendingActivityReminder;
+      pendingActivityReminder = null;
+      document.getElementById('modal-activity-reminder-confirmation').style.display = 'none';
+      notifyActivityReminder(activity);
     }
 
     function handleMeetingSubmit(e) {
@@ -1701,6 +1764,7 @@
           <td><input type="checkbox" ${activity.completed === true ? 'checked' : ''} onchange="toggleActivityCompleted(${activity.id}, this.checked)"></td>
           <td>
             <button class="btn-edit-action" onclick="editActivity(${activity.id})">Modifier</button>
+            ${activity.responsables && activity.responsables.length > 0 ? `<button type="button" class="btn-edit-action btn-notify" onclick="remindActivity(${activity.id})" title="Rappeler sur Discord">🔔</button>` : ''}
             <button class="btn-del" onclick="deleteActivity(${activity.id})">Supprimer</button>
           </td>
         `;
