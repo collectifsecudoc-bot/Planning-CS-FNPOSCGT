@@ -357,6 +357,23 @@
       opacity: 0.3;
     }
 
+    select.status-select.status-error {
+      outline: 2px solid var(--cgt-red);
+      outline-offset: -2px;
+    }
+
+    .status-code-error {
+      display: none;
+      margin: -8px 0 12px;
+      padding: 8px 10px;
+      color: var(--cgt-dark-red);
+      background-color: #ffebee;
+      border: 1px solid var(--cgt-red);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+
     .modal-overlay {
       display: none;
       position: fixed;
@@ -628,6 +645,7 @@
   <div id="view-planning" class="view-container active">
     <section>
       <h2>Disponibilités des Camarades <span style="font-size:0.8rem; font-weight:normal; color:#666;">(cliquer sur un nom pour voir / modifier ses coordonnées)</span></h2>
+      <div id="status-code-error" class="status-code-error" role="alert" aria-live="polite"></div>
       <div class="table-container">
         <table id="table-camarades">
           <thead>
@@ -1273,6 +1291,7 @@
 
               select.addEventListener('change', (e) => {
                 const val = e.target.value;
+                clearStatusCodeError(e.target);
                 const meetingsToLeave = meetings.filter(meeting => {
                   const meetingMonth = meeting.month !== undefined ? meeting.month : month;
                   const meetingYear = meeting.year !== undefined ? meeting.year : year;
@@ -1304,6 +1323,35 @@
                   e.preventDefault();
                   select.value = "";
                   select.dispatchEvent(new Event('change'));
+                  return;
+                }
+
+                if (e.key === 'Enter') {
+                  const typedCode = select.dataset.typedCode || '';
+                  if (typedCode && !statuses.some(status => status.code.toUpperCase() === typedCode)) {
+                    e.preventDefault();
+                    showStatusCodeError(select, typedCode);
+                  }
+                  return;
+                }
+
+                if (/^[a-z0-9]$/i.test(e.key)) {
+                  e.preventDefault();
+                  const typedCode = `${select.dataset.typedCode || ''}${e.key}`.toUpperCase();
+                  const matchingStatuses = statuses.filter(status => status.code.toUpperCase().startsWith(typedCode));
+                  const exactStatus = matchingStatuses.find(status => status.code.toUpperCase() === typedCode);
+
+                  if (exactStatus) {
+                    select.value = exactStatus.code;
+                    select.dataset.typedCode = '';
+                    select.dispatchEvent(new Event('change'));
+                  } else if (matchingStatuses.length > 0) {
+                    select.dataset.typedCode = typedCode;
+                    clearStatusCodeError(select);
+                  } else {
+                    select.dataset.typedCode = '';
+                    showStatusCodeError(select, typedCode);
+                  }
                 }
               });
             }
@@ -1383,6 +1431,22 @@
         selectEl.style.color = '#333';
         selectEl.title = '';
       }
+    }
+
+    function clearStatusCodeError(selectEl) {
+      selectEl.classList.remove('status-error');
+      selectEl.removeAttribute('aria-invalid');
+      const error = document.getElementById('status-code-error');
+      error.style.display = 'none';
+      error.textContent = '';
+    }
+
+    function showStatusCodeError(selectEl, code) {
+      selectEl.classList.add('status-error');
+      selectEl.setAttribute('aria-invalid', 'true');
+      const error = document.getElementById('status-code-error');
+      error.textContent = `Le code « ${code} » n'existe pas. Codes disponibles : ${statuses.filter(status => status.code).map(status => status.code).join(', ')}.`;
+      error.style.display = 'block';
     }
 
     function getMeetingStatusCode(meeting) {
