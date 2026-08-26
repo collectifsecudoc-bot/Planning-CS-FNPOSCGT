@@ -1915,7 +1915,7 @@
       const cList = document.getElementById('edit-camarades-list');
       cList.innerHTML = '';
       camarades.forEach((c, idx) => {
-        cList.innerHTML += `<li><span>${c.name}</span><button class="btn-del" onclick="removeCamarade(${idx})">Supprimer</button></li>`;
+        cList.innerHTML += `<li><span>${c.name}</span><span><button class="btn-edit-action" onclick="editCamarade(${idx})">Modifier</button><button class="btn-del" onclick="removeCamarade(${idx})">Supprimer</button></span></li>`;
       });
 
       const subList = document.getElementById('edit-subjects-list');
@@ -1924,16 +1924,93 @@
         let badgeClass = 'badge-ucanss';
         if (sub.category === 'Collectif Sécu') badgeClass = 'badge-cs';
         else if (sub.category === 'Fédé') badgeClass = 'badge-fede';
-        subList.innerHTML += `<li><span><span class="${badgeClass}">${sub.category}</span> ${sub.title}</span><button class="btn-del" onclick="removeSubject(${idx})">Supprimer</button></li>`;
+        subList.innerHTML += `<li><span><span class="${badgeClass}">${sub.category}</span> ${sub.title}</span><span><button class="btn-edit-action" onclick="editSubject(${idx})">Modifier</button><button class="btn-del" onclick="removeSubject(${idx})">Supprimer</button></span></li>`;
       });
 
       const sList = document.getElementById('edit-statuses-list');
       sList.innerHTML = '';
       statuses.forEach((st, idx) => {
         if (st.code === "") return;
-        const actionBtn = st.locked ? `<span style="font-size: 0.75rem; color: #777; font-style: italic;">Système</span>` : `<button class="btn-del" onclick="removeStatus(${idx})">Supprimer</button>`;
+        const actionBtn = st.locked ? `<span style="font-size: 0.75rem; color: #777; font-style: italic;">Système</span>` : `<span><button class="btn-edit-action" onclick="editStatus(${idx})">Modifier</button><button class="btn-del" onclick="removeStatus(${idx})">Supprimer</button></span>`;
         sList.innerHTML += `<li><span><strong style="background:${st.bg}; color:${st.color}; padding:2px 5px; border-radius:3px;">${st.code}</strong> ${st.label}</span>${actionBtn}</li>`;
       });
+    }
+
+    function editCamarade(idx) {
+      const camarade = camarades[idx];
+      const name = prompt('Nom du camarade :', camarade.name);
+      if (name === null) return;
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+      if (camarades.some((item, itemIdx) => itemIdx !== idx && item.name.toLowerCase() === trimmedName.toLowerCase())) {
+        alert('Ce nom existe déjà.');
+        return;
+      }
+
+      const discordId = prompt('ID Discord (facultatif) :', camarade.discordId || '');
+      if (discordId === null) return;
+      const oldName = camarade.name;
+      camarade.name = trimmedName;
+      camarade.discordId = discordId.trim();
+      cellStatuses.forEach(status => {
+        if (status.camarade === oldName) status.camarade = trimmedName;
+      });
+      meetings.forEach(meeting => {
+        meeting.camarades = (meeting.camarades || []).map(nameValue => nameValue === oldName ? trimmedName : nameValue);
+      });
+      activities.forEach(activity => {
+        activity.responsables = (activity.responsables || []).map(nameValue => nameValue === oldName ? trimmedName : nameValue);
+      });
+      camarades.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+      saveToFirebase();
+      renderAll();
+    }
+
+    function editSubject(idx) {
+      const subject = meetingSubjects[idx];
+      const title = prompt('Libellé de la réunion :', subject.title);
+      if (title === null || !title.trim()) return;
+      const category = prompt('Catégorie (Ucanss, Fédé ou Collectif Sécu) :', subject.category);
+      if (category === null || !['Ucanss', 'Fédé', 'Collectif Sécu'].includes(category.trim())) {
+        if (category !== null) alert('Catégorie invalide.');
+        return;
+      }
+      subject.title = title.trim();
+      subject.category = category.trim();
+      saveToFirebase();
+      renderAll();
+    }
+
+    function editStatus(idx) {
+      const status = statuses[idx];
+      const code = prompt('Code :', status.code);
+      if (code === null || !code.trim()) return;
+      const normalizedCode = code.trim().toUpperCase();
+      if (statuses.some((item, itemIdx) => itemIdx !== idx && item.code.toUpperCase() === normalizedCode)) {
+        alert('Ce code existe déjà.');
+        return;
+      }
+      const label = prompt('Libellé :', status.label);
+      if (label === null || !label.trim()) return;
+      const bg = prompt('Couleur de fond (format hexadécimal) :', status.bg);
+      if (bg === null || !/^#[0-9a-f]{6}$/i.test(bg.trim())) {
+        if (bg !== null) alert('Couleur invalide. Utilisez par exemple #e3f2fd.');
+        return;
+      }
+      const color = prompt('Couleur du texte (format hexadécimal) :', status.color);
+      if (color === null || !/^#[0-9a-f]{6}$/i.test(color.trim())) {
+        if (color !== null) alert('Couleur invalide. Utilisez par exemple #000000.');
+        return;
+      }
+      cellStatuses.forEach(cellStatus => {
+        if (cellStatus.code === status.code) cellStatus.code = normalizedCode;
+      });
+      status.code = normalizedCode;
+      status.label = label.trim();
+      status.bg = bg.trim();
+      status.color = color.trim();
+      saveToFirebase();
+      renderAll();
     }
 
     function addCamarade() {
