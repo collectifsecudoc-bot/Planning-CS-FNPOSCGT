@@ -816,20 +816,20 @@
 
   <script>
     let defaultCamarades = [
-      { name: "Adeline", email: "", phone: "", discordId: "1098601239463350345" },
-      { name: "Benjamin", email: "", phone: "", discordId: "1098601072236449814" },
-      { name: "Carole", email: "", phone: "", discordId: "1074606312962396200" },
-      { name: "Hayet", email: "", phone: "", discordId: "1074817842173710366" },
-      { name: "Karim", email: "", phone: "", discordId: "1103304137455710228" },
-      { name: "Laurent", email: "", phone: "", discordId: "1098602944846364702" },
+      { name: "Adeline", email: "adelinecostantino@yahoo.fr", phone: "", discordId: "1098601239463350345" },
+      { name: "Benjamin", email: "benjamin.sablier@wanadoo.fr", phone: "", discordId: "1098601072236449814" },
+      { name: "Carole", email: "cb.pichot@laposte.net", phone: "", discordId: "1074606312962396200" },
+      { name: "Hayet", email: "hayet.saouli@gmail.com", phone: "", discordId: "1074817842173710366" },
+      { name: "Karim", email: "kbakhta@orgasociaux.cgt.fr", phone: "", discordId: "1103304137455710228" },
+      { name: "Laurent", email: "dabjat@aol.com", phone: "", discordId: "1098602944846364702" },
       { name: "Lulu", email: "", phone: "", discordId: "1074609969795711006" },
-      { name: "Mahmoud", email: "", phone: "", discordId: "1219651546237898783" },
-      { name: "Maryline", email: "", phone: "", discordId: "1248673551008137351" },
-      { name: "Romain", email: "", phone: "", discordId: "673560251190083611" },
-      { name: "Rudy", email: "", phone: "", discordId: "692394392249696346" },
-      { name: "Thierry B", email: "", phone: "", discordId: "1219715047136428104" },
-      { name: "Thierry D", email: "", phone: "", discordId: "1436295446807973970" },
-      { name: "Vincent", email: "", phone: "", discordId: "1098600004911910953" },
+      { name: "Mahmoud", email: "mahmoud.f83@hotmail.com", phone: "", discordId: "1219651546237898783" },
+      { name: "Maryline", email: "lou-percur@hotmail.fr", phone: "", discordId: "1248673551008137351" },
+      { name: "Romain", email: "romain.riviere.cgt@outlook.com", phone: "", discordId: "673560251190083611" },
+      { name: "Rudy", email: "rudy.derumier.mobile@gmail.com", phone: "", discordId: "692394392249696346" },
+      { name: "Thierry B", email: "thierry.barthez516@orange.fr", phone: "", discordId: "1219715047136428104" },
+      { name: "Thierry D", email: "thierry.dugoulet87@gmail.com", phone: "", discordId: "1436295446807973970" },
+      { name: "Vincent", email: "vtoudret@orgasociaux.cgt.fr", phone: "", discordId: "1098600004911910953" },
       { name: "Yves", email: "", phone: "", discordId: "1062651742057148466" }
     ].sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
 
@@ -969,6 +969,7 @@
             const defaultCamarade = defaultCamarades.find(item => item.name === camarade.name);
             return {
               ...camarade,
+              email: camarade.email || defaultCamarade?.email || '',
               discordId: camarade.discordId || defaultCamarade?.discordId || ''
             };
           });
