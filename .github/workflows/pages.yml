@@ -9,6 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/configure-pages@v3
+
+      # On dit à GitHub Pages de publier la racine du dépôt
       - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./
+
       - uses: actions/deploy-pages@v3
