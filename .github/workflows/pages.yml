@@ -14,11 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/configure-pages@v5
-
-      # On dit à GitHub Pages de publier la racine du dépôt
-      - uses: actions/upload-pages-artifact@v3
+      # On envoie la racine du dépôt en artefact
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: ./
 
+      # On déploie l'artefact créé
       - uses: actions/deploy-pages@v4
