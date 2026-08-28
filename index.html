@@ -1448,6 +1448,16 @@
       return date;
     }
 
+    function getMeetingStatusForCell(camaradeName, year, month, day, slot) {
+      const meeting = meetings.find(meeting => {
+        const meetingMonth = meeting.month !== undefined ? meeting.month : month;
+        const meetingYear = meeting.year !== undefined ? meeting.year : year;
+        const meetingSlot = parseInt(meeting.time.substring(0, 2)) < 12 ? 'M' : 'A';
+        return meetingMonth === month && meetingYear === year && meeting.day === day && meetingSlot === slot && (meeting.camarades || []).includes(camaradeName);
+      });
+      return meeting ? getMeetingStatusCode(meeting) : '';
+    }
+
     function openWeekEditModal(camaradeName, month, year, day) {
       const grid = document.getElementById('week-edit-grid');
       const weekStart = getWeekStart(year, month, day);
@@ -1486,8 +1496,9 @@
             select.appendChild(option);
           });
           const saved = cellStatuses.find(status => status.camarade === camaradeName && status.year === year && status.month === month && status.day === dateDay && status.slot === slot);
-          select.value = saved ? saved.code : '';
-          select.disabled = isInactive;
+          const meetingStatus = getMeetingStatusForCell(camaradeName, year, month, dateDay, slot);
+          select.value = meetingStatus || (saved ? saved.code : '');
+          select.disabled = isInactive || Boolean(meetingStatus);
           updateSelectStyle(select);
           select.addEventListener('change', event => {
             const tableSelect = document.querySelector(`select.status-select[data-camarade="${camaradeName}"][data-day="${dateDay}"][data-slot="${slot}"]`);
