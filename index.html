@@ -518,27 +518,67 @@
       background-color: #0288d1;
       color: white;
       border: none;
-      padding: 3px 8px;
-      border-radius: 3px;
+      padding: 5px 10px;
+      border-radius: 4px;
       cursor: pointer;
       font-size: 0.75rem;
-      margin-right: 4px;
+      font-weight: 500;
+      margin: 0 3px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    button.btn-edit-action:hover {
+      background-color: #0276c9;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    button.btn-edit-action.btn-google {
+      background-color: rgba(66, 133, 244, 0.2);
+      color: #4285f4;
+      border: 1px solid #4285f4;
+      font-weight: 600;
+    }
+
+    button.btn-edit-action.btn-google:hover {
+      background-color: rgba(66, 133, 244, 0.35);
+      border-color: #3367d6;
+      box-shadow: 0 2px 6px rgba(66, 133, 244, 0.3);
     }
 
     button.btn-notify {
-      padding: 2px 5px;
-      font-size: 0.7rem;
-      margin-left: 3px;
+      padding: 5px 8px;
+      font-size: 0.75rem;
+      margin: 0 3px;
+      background-color: #ff9800;
+      transition: all 0.2s ease;
+    }
+
+    button.btn-notify:hover {
+      background-color: #f57c00;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
     }
 
     button.btn-del {
       background-color: #d9534f;
       color: white;
       border: none;
-      padding: 3px 8px;
-      border-radius: 3px;
+      padding: 5px 10px;
+      border-radius: 4px;
       cursor: pointer;
       font-size: 0.75rem;
+      font-weight: 500;
+      margin: 0 3px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    button.btn-del:hover {
+      background-color: #c9302c;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
     }
 
     button.btn-cancel {
@@ -755,8 +795,9 @@
               <th style="width: 8%;">Heure</th>
               <th style="width: 28%;">Réunion</th>
               <th style="width: 14%;">Document</th>
-              <th style="width: 23%;">Camarades Présents</th>
-              <th style="width: 15%;">Action</th>
+              <th style="width: 19%;">Camarades Présents</th>
+              <th style="width: 10%;">Paramétres</th>
+              <th style="width: 9%;">Intégrations</th>
             </tr>
           </thead>
           <tbody id="body-meetings"></tbody>
@@ -2076,14 +2117,66 @@
           </td>
           <td>${docHtml}</td>
           <td style="text-align:left;">${camaradesPresentHtml}</td>
-          <td>
+          <td style="text-align:center;">
             <button class="btn-edit-action" onclick="editMeeting(${m.id})">Modifier</button>
-            ${m.docUrl ? `<button type="button" class="btn-edit-action btn-notify" onclick="notifyMeetingDocument(${m.id})">🔔</button>` : ''}
             <button class="btn-del" onclick="deleteMeeting(${m.id})">Supprimer</button>
+          </td>
+          <td style="text-align:center;">
+            ${m.docUrl ? `<button type="button" class="btn-edit-action btn-notify" onclick="notifyMeetingDocument(${m.id})">🔔</button>` : ''}
+            <button class="btn-edit-action btn-google" onclick="openGoogleCalendarEvent(${m.id})">📅 Google</button>
           </td>
         `;
         body.appendChild(tr);
       });
+    }
+
+
+    function openGoogleCalendarEvent(meetingId) {
+      const meeting = meetings.find(item => item.id === meetingId);
+      if (!meeting) return;
+
+      // 1. Récupération de l'année, du mois (0-11) et du jour
+      const currentMonth = parseInt(selectMonth.value);
+      const currentYear = parseInt(selectYear.value);
+      const year = meeting.year !== undefined ? meeting.year : currentYear;
+      const month = meeting.month !== undefined ? meeting.month : currentMonth;
+      const day = meeting.day;
+
+      // 2. Extraction des heures et minutes depuis le champ meeting.time (ex: "09:30" ou "14:00")
+      let hours = 9;
+      let minutes = 0;
+      if (meeting.time) {
+        const timeParts = meeting.time.replace('h', ':').split(':');
+        if (timeParts.length >= 1) hours = parseInt(timeParts[0], 10) || 9;
+        if (timeParts.length >= 2) minutes = parseInt(timeParts[1], 10) || 0;
+      }
+
+      // 3. Création des objets Date de début et de fin (+3 heures)
+      const startDate = new Date(year, month, day, hours, minutes, 0);
+      const endDate = new Date(startDate.getTime() + (3 * 60 * 60 * 1000)); // +3 Heures
+
+      // 4. Formatage ISO UTC / compact pour Google Calendar (YYYYMMDDTHHMMSSZ)
+      const formatForGoogle = (d) => {
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+      };
+
+      const startStr = formatForGoogle(startDate);
+      const endStr = formatForGoogle(endDate);
+
+      // 5. Création du titre et de la description
+      const title = `[${meeting.category}] ${meeting.title}`;
+      let desc = 'Réunion du Planning Collectif Sécu FNPOS CGT';
+      if (meeting.detail) desc += `\n\nDétails: ${meeting.detail}`;
+      if (meeting.isVisio) desc += '\n🎧 Visio';
+      if (meeting.docUrl) desc += `\n\n📁 Document: ${meeting.docUrl}`;
+      if (meeting.camarades && meeting.camarades.length > 0) {
+        desc += `\n\nPrésents: ${meeting.camarades.join(', ')}`;
+      }
+
+      // 6. Ouverture du lien Google Calendar
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(desc)}&ctz=Europe/Paris`;
+      window.open(url, '_blank');
     }
 
     function applyMeetingsToCamaradesTable() {
