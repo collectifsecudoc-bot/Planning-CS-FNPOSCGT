@@ -274,6 +274,33 @@
       max-width: 100%;
     }
 
+    .meetings-group,
+    .activities-group {
+      margin-top: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .meetings-group summary,
+    .activities-group summary {
+      padding: 10px 12px;
+      color: var(--cgt-dark-red);
+      background-color: #fafafa;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .meetings-group summary::marker,
+    .activities-group summary::marker {
+      color: var(--cgt-red);
+    }
+
+    .meetings-group .table-container,
+    .activities-group .table-container {
+      border-top: 1px solid #ddd;
+    }
+
     table {
       border-collapse: collapse;
       width: 100%;
@@ -787,22 +814,45 @@
         <button type="button" class="btn-cancel" id="btn-cancel-meeting" style="display: none;" onclick="resetMeetingForm()">Annuler</button>
       </form>
 
-      <div class="table-container">
-        <table id="table-meetings">
-          <thead>
-            <tr>
-              <th style="width: 12%;">Date</th>
-              <th style="width: 8%;">Heure</th>
-              <th style="width: 28%;">Réunion</th>
-              <th style="width: 14%;">Document</th>
-              <th style="width: 19%;">Camarades Présents</th>
-              <th style="width: 10%;">Paramétres</th>
-              <th style="width: 9%;">Intégrations</th>
-            </tr>
-          </thead>
-          <tbody id="body-meetings"></tbody>
-        </table>
-      </div>
+      <details class="meetings-group">
+        <summary>Réunions passées</summary>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 12%;">Date</th>
+                <th style="width: 8%;">Heure</th>
+                <th style="width: 28%;">Réunion</th>
+                <th style="width: 14%;">Document</th>
+                <th style="width: 19%;">Camarades Présents</th>
+                <th style="width: 10%;">Paramétres</th>
+                <th style="width: 9%;">Intégrations</th>
+              </tr>
+            </thead>
+            <tbody id="body-past-meetings"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="meetings-group" open>
+        <summary>Réunions à venir</summary>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 12%;">Date</th>
+                <th style="width: 8%;">Heure</th>
+                <th style="width: 28%;">Réunion</th>
+                <th style="width: 14%;">Document</th>
+                <th style="width: 19%;">Camarades Présents</th>
+                <th style="width: 10%;">Paramétres</th>
+                <th style="width: 9%;">Intégrations</th>
+              </tr>
+            </thead>
+            <tbody id="body-upcoming-meetings"></tbody>
+          </table>
+        </div>
+      </details>
     </section>
 
     <section>
@@ -826,20 +876,41 @@
         <button type="button" class="btn-cancel" id="btn-cancel-activity" style="display: none;" onclick="resetActivityForm()">Annuler</button>
       </form>
 
-      <div class="table-container">
-        <table id="table-activities">
-          <thead>
-            <tr>
-              <th style="width: 35%;">Activité</th>
-              <th style="width: 20%;">Date limite</th>
-              <th style="width: 30%;">Camarade(s) responsable(s)</th>
-              <th style="width: 10%;">Terminé</th>
-              <th style="width: 15%;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="body-activities"></tbody>
-        </table>
-      </div>
+      <details class="activities-group">
+        <summary>Activités terminées</summary>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 35%;">Activité</th>
+                <th style="width: 20%;">Date limite</th>
+                <th style="width: 30%;">Camarade(s) responsable(s)</th>
+                <th style="width: 10%;">Terminé</th>
+                <th style="width: 15%;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="body-completed-activities"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="activities-group" open>
+        <summary>Activités non terminées</summary>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 35%;">Activité</th>
+                <th style="width: 20%;">Date limite</th>
+                <th style="width: 30%;">Camarade(s) responsable(s)</th>
+                <th style="width: 10%;">Terminé</th>
+                <th style="width: 15%;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="body-pending-activities"></tbody>
+          </table>
+        </div>
+      </details>
     </section>
   </div>
 
@@ -2041,11 +2112,13 @@
     }
 
     function renderActivitiesTable() {
-      const body = document.getElementById('body-activities');
+      const completedBody = document.getElementById('body-completed-activities');
+      const pendingBody = document.getElementById('body-pending-activities');
       const currentMonth = parseInt(selectMonth.value);
       const currentYear = parseInt(selectYear.value);
       const currentPeriod = currentYear * 12 + currentMonth;
-      body.innerHTML = '';
+      completedBody.innerHTML = '';
+      pendingBody.innerHTML = '';
 
       activities.filter(activity => {
         const activityPeriod = (activity.year !== undefined && activity.month !== undefined)
@@ -2073,15 +2146,17 @@
             <button class="btn-del" onclick="deleteActivity(${activity.id})">Supprimer</button>
           </td>
         `;
-        body.appendChild(row);
+        (activity.completed === true ? completedBody : pendingBody).appendChild(row);
       });
     }
 
     function renderMeetingsTable() {
-      const body = document.getElementById('body-meetings');
+      const upcomingBody = document.getElementById('body-upcoming-meetings');
+      const pastBody = document.getElementById('body-past-meetings');
       const currentMonth = parseInt(selectMonth.value);
       const currentYear = parseInt(selectYear.value);
-      body.innerHTML = '';
+      upcomingBody.innerHTML = '';
+      pastBody.innerHTML = '';
 
       const filteredMeetings = meetings.filter(m => {
         const mMonth = m.month !== undefined ? m.month : currentMonth;
@@ -2089,10 +2164,14 @@
         return mMonth === currentMonth && mYear === currentYear;
       });
 
+      const now = new Date();
       filteredMeetings.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)).forEach(m => {
         const tr = document.createElement('tr');
-        const date = new Date(currentYear, currentMonth, m.day);
-        const dateFormatted = `${dayFullNames[date.getDay()]} ${m.day} ${monthShortNames[currentMonth]}`;
+        const meetingMonth = m.month !== undefined ? m.month : currentMonth;
+        const meetingYear = m.year !== undefined ? m.year : currentYear;
+        const timeParts = (m.time || '00:00').replace('h', ':').split(':');
+        const startDate = new Date(meetingYear, meetingMonth, m.day, parseInt(timeParts[0], 10) || 0, parseInt(timeParts[1], 10) || 0);
+        const dateFormatted = `${dayFullNames[startDate.getDay()]} ${m.day} ${monthShortNames[meetingMonth]}`;
 
         let badgeClass = 'badge-ucanss';
         if (m.category === 'Collectif Sécu') badgeClass = 'badge-cs';
@@ -2126,7 +2205,7 @@
             <button class="btn-edit-action btn-google" onclick="openGoogleCalendarEvent(${m.id})">📅 Google</button>
           </td>
         `;
-        body.appendChild(tr);
+        (startDate <= now ? pastBody : upcomingBody).appendChild(tr);
       });
     }
 
