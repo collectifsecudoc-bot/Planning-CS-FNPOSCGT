@@ -542,23 +542,30 @@
     }
 
     button.btn-edit-action {
-      background-color: #0288d1;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
+      background: rgba(3, 136, 209, 0.16);
+      color: #075985;
+      border: 1px solid rgba(3, 105, 161, 0.48);
+      min-width: 34px;
+      min-height: 30px;
+      padding: 4px 7px;
+      border-radius: 9px;
       cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 500;
+      font-size: 1rem;
+      line-height: 1;
+      font-weight: 600;
       margin: 0 3px;
-      transition: all 0.2s ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 2px 5px rgba(3, 105, 161, 0.14);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
       white-space: nowrap;
     }
 
     button.btn-edit-action:hover {
-      background-color: #0276c9;
+      background: rgba(3, 136, 209, 0.3);
+      border-color: rgba(3, 105, 161, 0.7);
       transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 3px 8px rgba(3, 105, 161, 0.2);
     }
 
     button.btn-edit-action.btn-google {
@@ -597,23 +604,84 @@
     }
 
     button.btn-del {
-      background-color: #d9534f;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
+      background: rgba(211, 47, 47, 0.16);
+      color: #a51d1d;
+      border: 1px solid rgba(198, 40, 40, 0.5);
+      min-width: 34px;
+      min-height: 30px;
+      padding: 4px 7px;
+      border-radius: 9px;
       cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 500;
+      font-size: 1rem;
+      line-height: 1;
+      font-weight: 600;
       margin: 0 3px;
-      transition: all 0.2s ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 2px 5px rgba(183, 28, 28, 0.14);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
       white-space: nowrap;
     }
 
     button.btn-del:hover {
-      background-color: #c9302c;
+      background: rgba(211, 47, 47, 0.3);
+      border-color: rgba(183, 28, 28, 0.72);
       transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 3px 8px rgba(183, 28, 28, 0.2);
+    }
+
+    button[data-tooltip] {
+      position: relative;
+    }
+
+    button[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      z-index: 20;
+      width: max-content;
+      max-width: 180px;
+      padding: 6px 9px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(32, 33, 36, 0.92);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.2;
+      text-align: center;
+      white-space: normal;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, 4px);
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    }
+
+    button[data-tooltip]::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 3px);
+      z-index: 20;
+      width: 8px;
+      height: 8px;
+      background: rgba(32, 33, 36, 0.92);
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, 4px) rotate(45deg);
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    }
+
+    button[data-tooltip]:hover::before,
+    button[data-tooltip]:hover::after,
+    button[data-tooltip]:focus-visible::before,
+    button[data-tooltip]:focus-visible::after {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, 0);
     }
 
     button.btn-cancel {
@@ -950,7 +1018,7 @@
 
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeContactModal()">Fermer</button>
-        <button class="btn-add" id="btn-modal-edit" onclick="toggleModalEditMode()" title="Modifier" aria-label="Modifier">⚙️</button>
+        <button class="btn-add" id="btn-modal-edit" onclick="toggleModalEditMode()" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
       </div>
     </div>
   </div>
@@ -1418,7 +1486,7 @@
         card.innerHTML = `
           <h3>
             <span>${c.name}</span>
-            <button class="btn-edit-action" onclick="openContactModal(${originalIndex})" title="Modifier" aria-label="Modifier">⚙️</button>
+            <button class="btn-edit-action" onclick="openContactModal(${originalIndex})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
           </h3>
           <div class="directory-info"><span>✉️</span> <strong>Email :</strong> ${emailContent}</div>
           <div class="directory-info"><span>📞</span> <strong>Tél :</strong> ${phoneContent}</div>
@@ -2152,9 +2220,9 @@
           <td style="text-align:left;">${responsables}</td>
           <td><input type="checkbox" ${activity.completed === true ? 'checked' : ''} onchange="toggleActivityCompleted(${activity.id}, this.checked)"></td>
           <td>
-            <button class="btn-edit-action" onclick="editActivity(${activity.id})" title="Modifier" aria-label="Modifier">⚙️</button>
-            ${activity.responsables && activity.responsables.length > 0 ? `<button type="button" class="btn-edit-action btn-notify" onclick="remindActivity(${activity.id})" title="Rappeler sur Discord">🔔</button>` : ''}
-            <button class="btn-del" onclick="deleteActivity(${activity.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
+            <button class="btn-edit-action" onclick="editActivity(${activity.id})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
+            ${activity.responsables && activity.responsables.length > 0 ? `<button type="button" class="btn-edit-action btn-notify" onclick="remindActivity(${activity.id})" title="Notifier les camarades sur Discord" aria-label="Notifier les camarades sur Discord" data-tooltip="Notifier les camarades sur Discord">🔔</button>` : ''}
+            <button class="btn-del" onclick="deleteActivity(${activity.id})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button>
           </td>
         `;
         (activity.completed === true ? completedBody : pendingBody).appendChild(row);
@@ -2205,14 +2273,14 @@
             <span class="meeting-title-text">${m.title}</span>
             ${detailHtml} ${visioBadge}
           </td>
-          <td>${docHtml} ${m.docUrl ? `<button type="button" class="btn-edit-action btn-notify" onclick="notifyMeetingDocument(${m.id})" title="Notifier le document" aria-label="Notifier le document">🔔</button>` : ''}</td>
+          <td>${docHtml} ${m.docUrl ? `<button type="button" class="btn-edit-action btn-notify" onclick="notifyMeetingDocument(${m.id})" title="Notifier les camarades sur Discord" aria-label="Notifier les camarades sur Discord" data-tooltip="Notifier les camarades sur Discord">🔔</button>` : ''}</td>
           <td style="text-align:left;">${camaradesPresentHtml}</td>
           <td style="text-align:center;">
-            <button class="btn-edit-action" onclick="editMeeting(${m.id})" title="Modifier" aria-label="Modifier">⚙️</button>
-            <button class="btn-del" onclick="deleteMeeting(${m.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
+            <button class="btn-edit-action" onclick="editMeeting(${m.id})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
+            <button class="btn-del" onclick="deleteMeeting(${m.id})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button>
           </td>
           <td style="text-align:center;">
-            <button class="btn-edit-action btn-google" onclick="openGoogleCalendarEvent(${m.id})" title="Ajouter à mon planning" aria-label="Ajouter à mon planning">📅</button>
+            <button class="btn-edit-action btn-google" onclick="openGoogleCalendarEvent(${m.id})" title="Ajouter à mon agenda" aria-label="Ajouter à mon agenda" data-tooltip="Ajouter à mon agenda">📅</button>
           </td>
         `;
         (startDate <= now ? pastBody : upcomingBody).appendChild(tr);
@@ -2299,7 +2367,7 @@
       const cList = document.getElementById('edit-camarades-list');
       cList.innerHTML = '';
       camarades.forEach((c, idx) => {
-        cList.innerHTML += `<li><span>${c.name}</span><span><button class="btn-edit-action" onclick="editCamarade(${idx})" title="Modifier" aria-label="Modifier">⚙️</button><button class="btn-del" onclick="removeCamarade(${idx})" title="Supprimer" aria-label="Supprimer">🗑️</button></span></li>`;
+        cList.innerHTML += `<li><span>${c.name}</span><span><button class="btn-edit-action" onclick="editCamarade(${idx})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button><button class="btn-del" onclick="removeCamarade(${idx})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button></span></li>`;
       });
 
       const subList = document.getElementById('edit-subjects-list');
@@ -2308,14 +2376,14 @@
         let badgeClass = 'badge-ucanss';
         if (sub.category === 'Collectif Sécu') badgeClass = 'badge-cs';
         else if (sub.category === 'Fédé') badgeClass = 'badge-fede';
-        subList.innerHTML += `<li><span><span class="${badgeClass}">${sub.category}</span> ${sub.title}</span><span><button class="btn-edit-action" onclick="editSubject(${idx})" title="Modifier" aria-label="Modifier">⚙️</button><button class="btn-del" onclick="removeSubject(${idx})" title="Supprimer" aria-label="Supprimer">🗑️</button></span></li>`;
+        subList.innerHTML += `<li><span><span class="${badgeClass}">${sub.category}</span> ${sub.title}</span><span><button class="btn-edit-action" onclick="editSubject(${idx})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button><button class="btn-del" onclick="removeSubject(${idx})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button></span></li>`;
       });
 
       const sList = document.getElementById('edit-statuses-list');
       sList.innerHTML = '';
       statuses.forEach((st, idx) => {
         if (st.code === "") return;
-        const actionBtn = st.locked ? `<span style="font-size: 0.75rem; color: #777; font-style: italic;">Système</span>` : `<span><button class="btn-edit-action" onclick="editStatus(${idx})" title="Modifier" aria-label="Modifier">⚙️</button><button class="btn-del" onclick="removeStatus(${idx})" title="Supprimer" aria-label="Supprimer">🗑️</button></span>`;
+        const actionBtn = st.locked ? `<span style="font-size: 0.75rem; color: #777; font-style: italic;">Système</span>` : `<span><button class="btn-edit-action" onclick="editStatus(${idx})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button><button class="btn-del" onclick="removeStatus(${idx})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button></span>`;
         sList.innerHTML += `<li><span><strong style="background:${st.bg}; color:${st.color}; padding:2px 5px; border-radius:3px;">${st.code}</strong> ${st.label}</span>${actionBtn}</li>`;
       });
     }
