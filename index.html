@@ -886,8 +886,10 @@
         <label for="m-day">Date :</label>
         <select id="m-day" required></select>
 
-        <label for="m-time">Heure de début :</label>
-        <select id="m-time"></select>
+        <label for="m-hour">Heure de début :</label>
+        <select id="m-hour" required aria-label="Heures de début"></select>
+        <select id="m-minute" required aria-label="Minutes de début"></select>
+        <input type="hidden" id="m-time">
 
         <label style="font-weight: bold; background: #e0f7fa; padding: 6px 10px; border-radius: 4px; border: 1px solid #00bcd4; cursor: pointer;">
           <input type="checkbox" id="m-visio"> 🎧 Visio
@@ -1068,8 +1070,8 @@
 
   <div class="modal-overlay" id="modal-edit-access">
     <div class="modal-content">
-      <h3>Accès édition / configuration</h3>
-      <label for="edit-access-code">Code à 4 chiffres :</label>
+      <h3 id="edit-access-title">Accès édition / configuration</h3>
+      <label for="edit-access-code" id="edit-access-label">Code à 4 chiffres :</label>
       <input type="password" id="edit-access-code" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="off">
       <div id="edit-access-error" style="display:none; color:var(--cgt-dark-red); font-size:0.85rem; margin-top:8px;">Code incorrect.</div>
       <div class="modal-actions">
@@ -1222,6 +1224,7 @@
     let pendingNotification = null;
     let pendingActivityReminder = null;
     let pendingWeekEdit = null;
+    let pendingDeletion = null;
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
     const monthShortNames = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -1384,15 +1387,40 @@
     }
 
     function populateStartTimes() {
-      const timeSelect = document.getElementById('m-time');
-      timeSelect.innerHTML = '';
+      const hourSelect = document.getElementById('m-hour');
+      const minuteSelect = document.getElementById('m-minute');
+      hourSelect.innerHTML = '';
+      minuteSelect.innerHTML = '';
+
       for (let hour = 8; hour <= 18; hour++) {
-        const hStr = hour.toString().padStart(2, '0');
-        const opt1 = document.createElement('option'); opt1.value = `${hStr}h00`; opt1.textContent = `${hStr}h00`; timeSelect.appendChild(opt1);
-        if (hour < 18) {
-          const opt2 = document.createElement('option'); opt2.value = `${hStr}h30`; opt2.textContent = `${hStr}h30`; timeSelect.appendChild(opt2);
-        }
+        const option = document.createElement('option');
+        option.value = hour.toString().padStart(2, '0');
+        option.textContent = option.value;
+        hourSelect.appendChild(option);
       }
+
+      ['00', '15', '30', '45'].forEach(minutes => {
+        const option = document.createElement('option');
+        option.value = minutes;
+        option.textContent = minutes;
+        minuteSelect.appendChild(option);
+      });
+
+      const syncStartTime = () => {
+        document.getElementById('m-time').value = `${hourSelect.value}h${minuteSelect.value}`;
+      };
+      hourSelect.addEventListener('change', syncStartTime);
+      minuteSelect.addEventListener('change', syncStartTime);
+      syncStartTime();
+    }
+
+    function setStartTime(time) {
+      const match = String(time || '').match(/(\d{1,2})[h:](\d{2})/);
+      const hourSelect = document.getElementById('m-hour');
+      const minuteSelect = document.getElementById('m-minute');
+      hourSelect.value = match ? match[1].padStart(2, '0') : '08';
+      minuteSelect.value = match && ['00', '15', '30', '45'].includes(match[2]) ? match[2] : '00';
+      document.getElementById('m-time').value = `${hourSelect.value}h${minuteSelect.value}`;
     }
 
     function populateMeetingSubjects() {
@@ -1445,6 +1473,9 @@
     function openEditAccessModal() {
       const modal = document.getElementById('modal-edit-access');
       const input = document.getElementById('edit-access-code');
+      const isDeletion = pendingDeletion !== null;
+      document.getElementById('edit-access-title').textContent = isDeletion ? 'Confirmer la suppression' : 'Accès édition / configuration';
+      document.getElementById('edit-access-label').textContent = isDeletion ? 'Code requis pour supprimer :' : 'Code à 4 chiffres :';
       document.getElementById('edit-access-error').style.display = 'none';
       input.value = '';
       modal.style.display = 'flex';
@@ -1453,14 +1484,22 @@
 
     function closeEditAccessModal() {
       document.getElementById('modal-edit-access').style.display = 'none';
+      pendingDeletion = null;
     }
 
     function validateEditAccessCode() {
       const input = document.getElementById('edit-access-code');
       if (input.value === '0410') {
+        const deletion = pendingDeletion;
+        pendingDeletion = null;
         closeEditAccessModal();
-        document.getElementById('edit-panel').style.display = 'block';
-        renderEditLists();
+        if (deletion) {
+          if (deletion.type === 'meeting') deleteMeetingConfirmed(deletion.id);
+          if (deletion.type === 'activity') deleteActivityConfirmed(deletion.id);
+        } else {
+          document.getElementById('edit-panel').style.display = 'block';
+          renderEditLists();
+        }
       } else {
         document.getElementById('edit-access-error').style.display = 'block';
         input.focus();
@@ -2090,7 +2129,7 @@
 
       document.getElementById('m-detail').value = m.detail || '';
       document.getElementById('m-day').value = m.day;
-      document.getElementById('m-time').value = m.time;
+      setStartTime(m.time);
       document.getElementById('m-visio').checked = m.isVisio;
       document.getElementById('m-doc-url').value = m.docUrl || '';
 
@@ -2119,6 +2158,7 @@
     function resetMeetingForm() {
       document.getElementById('editing-meeting-id').value = '';
       document.getElementById('m-detail').value = '';
+      setStartTime('08h00');
       document.getElementById('m-visio').checked = false;
       document.getElementById('m-doc-url').value = '';
       document.querySelectorAll('.m-camarade-cb').forEach(cb => cb.checked = false);
@@ -2131,6 +2171,11 @@
     }
 
     function deleteMeeting(id) {
+      pendingDeletion = { type: 'meeting', id };
+      openEditAccessModal();
+    }
+
+    function deleteMeetingConfirmed(id) {
       meetings = meetings.filter(m => m.id !== id);
       if (document.getElementById('editing-meeting-id').value == id) resetMeetingForm();
       saveToFirebase();
@@ -2200,6 +2245,11 @@
     }
 
     function deleteActivity(id) {
+      pendingDeletion = { type: 'activity', id };
+      openEditAccessModal();
+    }
+
+    function deleteActivityConfirmed(id) {
       activities = activities.filter(activity => activity.id !== id);
       if (document.getElementById('editing-activity-id').value == id) resetActivityForm();
       saveToFirebase();
