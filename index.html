@@ -201,6 +201,37 @@
       align-items: center;
     }
 
+    .directory-card-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .directory-avatar {
+      display: inline-flex;
+      flex: 0 0 38px;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 50%;
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.7), 0 3px 8px rgba(32, 33, 36, 0.14);
+      text-shadow: 0 1px 2px rgba(32, 33, 36, 0.25);
+    }
+
+    .directory-card-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .directory-info {
       font-size: 0.85rem;
       color: #555;
@@ -1551,12 +1582,20 @@
         const emailContent = c.email ? `<a href="mailto:${c.email}">${c.email}</a>` : '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
         const phoneContent = c.phone ? `<a href="tel:${c.phone}">${c.phone}</a>` : '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
         const discordContent = c.discordId || '<span style="color:#aaa; font-style:italic;">Non renseigné</span>';
+        const nameParts = c.name.trim().split(/\s+/).filter(Boolean);
+        const initials = nameParts.length > 1
+          ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+          : c.name.trim().slice(0, 2).toUpperCase();
+        const avatarHue = Array.from(c.name).reduce((total, character) => total + character.charCodeAt(0), 0) % 360;
 
         const card = document.createElement('div');
         card.className = 'directory-card';
         card.innerHTML = `
           <h3>
-            <span>${c.name}</span>
+            <span class="directory-card-heading">
+              <span class="directory-avatar" style="background: linear-gradient(145deg, hsl(${avatarHue} 68% 58%), hsl(${(avatarHue + 34) % 360} 68% 38%));" aria-hidden="true">${initials}</span>
+              <span class="directory-card-name">${c.name}</span>
+            </span>
             <button class="btn-edit-action" onclick="openContactModal(${originalIndex})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
           </h3>
           <div class="directory-info"><span>✉️</span> <strong>Email :</strong> ${emailContent}</div>
