@@ -631,6 +631,13 @@
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 3px 8px rgba(3, 105, 161, 0.2);
     }
 
+    .meeting-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      white-space: nowrap;
+    }
+
     button.btn-edit-action.btn-google {
       background-color: rgba(66, 133, 244, 0.14);
       color: #2864c7;
@@ -644,26 +651,6 @@
       background-color: rgba(66, 133, 244, 0.35);
       border-color: #3367d6;
       box-shadow: 0 2px 6px rgba(66, 133, 244, 0.3);
-    }
-
-    button.btn-notify {
-      padding: 5px 8px;
-      font-size: 0.75rem;
-      margin: 0 3px;
-      background: rgba(239, 83, 80, 0.2);
-      color: #b71c1c;
-      border: 1px solid rgba(239, 83, 80, 0.55);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 2px 5px rgba(183, 28, 28, 0.12);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      transition: all 0.2s ease;
-    }
-
-    button.btn-notify:hover {
-      background: rgba(239, 83, 80, 0.34);
-      border-color: rgba(198, 40, 40, 0.7);
-      transform: translateY(-1px);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 3px 7px rgba(183, 28, 28, 0.18);
     }
 
     button.btn-del {
@@ -1133,28 +1120,6 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-notify-confirmation">
-    <div class="modal-content">
-      <h3>Notification Discord</h3>
-      <p>Êtes-vous sûr de vouloir notifier une nouvelle fois les camarades sur Discord ?</p>
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="cancelNotification()">Annuler</button>
-        <button class="btn-add" onclick="confirmNotification()">Confirmer</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modal-activity-reminder-confirmation">
-    <div class="modal-content">
-      <h3>Rappel Discord</h3>
-      <p>Êtes-vous sûr de vouloir notifier une nouvelle fois les responsables de cette activité sur Discord ?</p>
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="cancelActivityReminder()">Annuler</button>
-        <button class="btn-add" onclick="confirmActivityReminder()">Confirmer</button>
-      </div>
-    </div>
-  </div>
-
   <script>
     let defaultCamarades = [
       { name: "Adeline", email: "adelinecostantino@yahoo.fr", phone: "", discordId: "1098601239463350345" },
@@ -1262,8 +1227,6 @@
     let currentView = 'planning';
     let isSyncingFromFirebase = false;
     let pendingMeetingRemoval = null;
-    let pendingNotification = null;
-    let pendingActivityReminder = null;
     let pendingWeekEdit = null;
     let pendingDeletion = null;
 
@@ -2026,105 +1989,6 @@
       allCheckbox.checked = camaradeCheckboxes.length > 0 && Array.from(camaradeCheckboxes).every(cb => cb.checked);
     }
 
-    const discordWebhookUrl = 'https://discord.com/api/webhooks/1542083119652274257/GlzwjC9TVF2NIBvCnGsQoUDjJ_NYACbogqKLXEN4tf2ttb8DWJFj4dHjCWNGTsMLx5UN';
-    const activityReminderWebhookUrl = 'https://discord.com/api/webhooks/1542114845615456297/YSkX_AgtmoLbY-TcXlaldRO-4n5XrjxrfEkIOa8AVEpzNxUJTVYAXHubFSVuG0yOvqbI';
-
-    async function notifyDiscordDocumentAdded(docUrl, meetingTitle, camaradeNames) {
-      const mentions = camaradeNames.map(name => {
-        const camarade = camarades.find(item => item.name === name);
-        return camarade?.discordId ? `<@${camarade.discordId}>` : name;
-      });
-      const participants = mentions.length > 0 ? mentions.join(', ') : 'Aucune personne renseignée';
-      const discordIds = camaradeNames
-        .map(name => camarades.find(item => item.name === name)?.discordId)
-        .filter(Boolean);
-      const message = `Concernant la réunion : ${meetingTitle}, un document a été ajouté : ${docUrl}. Merci à ${participants} de prendre connaissance des documents.`;
-
-      try {
-        const response = await fetch(discordWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: message,
-            allowed_mentions: { users: [...new Set(discordIds)] }
-          })
-        });
-        if (!response.ok) throw new Error(`Discord HTTP ${response.status}`);
-      } catch (error) {
-        console.error('La notification Discord n’a pas pu être envoyée :', error);
-      }
-    }
-
-    function notifyMeetingDocument(meetingId) {
-      const meeting = meetings.find(item => item.id === meetingId);
-      if (!meeting || !meeting.docUrl) return;
-      pendingNotification = meeting;
-      document.getElementById('modal-notify-confirmation').style.display = 'flex';
-    }
-
-    function cancelNotification() {
-      pendingNotification = null;
-      document.getElementById('modal-notify-confirmation').style.display = 'none';
-    }
-
-    function confirmNotification() {
-      if (!pendingNotification) return;
-      const meeting = pendingNotification;
-      pendingNotification = null;
-      document.getElementById('modal-notify-confirmation').style.display = 'none';
-      notifyDiscordDocumentAdded(meeting.docUrl, meeting.title, meeting.camarades || []);
-    }
-
-    async function notifyActivityReminder(activity) {
-      const responsibleNames = activity.responsables || [];
-      const mentions = responsibleNames.map(name => {
-        const camarade = camarades.find(item => item.name === name);
-        return camarade?.discordId ? `<@${camarade.discordId}>` : name;
-      });
-      const discordIds = responsibleNames
-        .map(name => camarades.find(item => item.name === name)?.discordId)
-        .filter(Boolean);
-      const responsibleText = mentions.length > 0 ? mentions.join(', ') : 'Aucun responsable renseigné';
-      const deadline = activity.deadline
-        ? new Date(`${activity.deadline}T00:00:00`).toLocaleDateString('fr-FR')
-        : 'Aucune date limite renseignée';
-      const message = `Bonjour ${responsibleText}, petit rappel d'activité à faire avant le ${deadline} : ${activity.title}. Si la tâche est terminée, pensez à cocher Terminer sur le planning. Bonne journée camarade(s).`;
-
-      try {
-        const response = await fetch(activityReminderWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: message,
-            allowed_mentions: { users: [...new Set(discordIds)] }
-          })
-        });
-        if (!response.ok) throw new Error(`Discord HTTP ${response.status}`);
-      } catch (error) {
-        console.error('Le rappel Discord de l’activité n’a pas pu être envoyé :', error);
-      }
-    }
-
-    function remindActivity(activityId) {
-      const activity = activities.find(item => item.id === activityId);
-      if (!activity) return;
-      pendingActivityReminder = activity;
-      document.getElementById('modal-activity-reminder-confirmation').style.display = 'flex';
-    }
-
-    function cancelActivityReminder() {
-      pendingActivityReminder = null;
-      document.getElementById('modal-activity-reminder-confirmation').style.display = 'none';
-    }
-
-    function confirmActivityReminder() {
-      if (!pendingActivityReminder) return;
-      const activity = pendingActivityReminder;
-      pendingActivityReminder = null;
-      document.getElementById('modal-activity-reminder-confirmation').style.display = 'none';
-      notifyActivityReminder(activity);
-    }
-
     function handleMeetingSubmit(e) {
       e.preventDefault();
       const subjectObj = JSON.parse(document.getElementById('m-title').value);
@@ -2142,19 +2006,15 @@
       if (otherCb.checked && otherName !== "") selectedCamarades.push(`${otherName} (Invité)`);
 
       const editingId = document.getElementById('editing-meeting-id').value;
-      let documentWasAdded = Boolean(docUrl);
-
       if (editingId) {
         const idx = meetings.findIndex(m => m.id == editingId);
         if (idx !== -1) {
-          documentWasAdded = Boolean(docUrl) && meetings[idx].docUrl !== docUrl;
           meetings[idx] = { id: parseInt(editingId), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades };
         }
       } else {
         meetings.push({ id: Date.now(), category: subjectObj.category, title: subjectObj.title, detail, day, month, year, time, isVisio, docUrl, camarades: selectedCamarades });
       }
 
-      if (documentWasAdded) notifyDiscordDocumentAdded(docUrl, subjectObj.title, selectedCamarades);
       resetMeetingForm();
       saveToFirebase();
       renderAll();
@@ -2344,7 +2204,6 @@
           <td><input type="checkbox" ${activity.completed === true ? 'checked' : ''} onchange="toggleActivityCompleted(${activity.id}, this.checked)"></td>
           <td>
             <button class="btn-edit-action" onclick="editActivity(${activity.id})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
-            ${activity.responsables && activity.responsables.length > 0 ? `<button type="button" class="btn-edit-action btn-notify" onclick="remindActivity(${activity.id})" title="Notifier les camarades sur Discord" aria-label="Notifier les camarades sur Discord" data-tooltip="Notifier les camarades sur Discord">🔔</button>` : ''}
             <button class="btn-del" onclick="deleteActivity(${activity.id})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button>
           </td>
         `;
@@ -2396,11 +2255,13 @@
             <span class="meeting-title-text">${m.title}</span>
             ${detailHtml} ${visioBadge}
           </td>
-          <td>${docHtml} ${m.docUrl ? `<button type="button" class="btn-edit-action btn-notify" onclick="notifyMeetingDocument(${m.id})" title="Notifier les camarades sur Discord" aria-label="Notifier les camarades sur Discord" data-tooltip="Notifier les camarades sur Discord">🔔</button>` : ''}</td>
+          <td>${docHtml}</td>
           <td style="text-align:left;">${camaradesPresentHtml}</td>
           <td style="text-align:center;">
-            <button class="btn-edit-action" onclick="editMeeting(${m.id})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
-            <button class="btn-del" onclick="deleteMeeting(${m.id})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button>
+            <span class="meeting-actions">
+              <button class="btn-edit-action" onclick="editMeeting(${m.id})" title="Modifier" aria-label="Modifier" data-tooltip="Modifier">⚙️</button>
+              <button class="btn-del" onclick="deleteMeeting(${m.id})" title="Supprimer" aria-label="Supprimer" data-tooltip="Supprimer">🗑️</button>
+            </span>
           </td>
           <td style="text-align:center;">
             <button class="btn-edit-action btn-google" onclick="openGoogleCalendarEvent(${m.id})" title="Ajouter à mon agenda" aria-label="Ajouter à mon agenda" data-tooltip="Ajouter à mon agenda">📅</button>
